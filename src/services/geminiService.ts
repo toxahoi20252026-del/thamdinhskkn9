@@ -8,7 +8,7 @@ export class GeminiService {
   }
 
   async analyzeInitiative(title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-3.1-pro-preview"): Promise<string | undefined> {
-    
+
     const now = new Date();
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
@@ -170,26 +170,38 @@ export class GeminiService {
     [/SCORES]`;
 
     try {
-      const response: GenerateContentResponse = await this.ai.models.generateContent({
-        model: modelName,
-        contents: prompt,
-        config: {
-          temperature: 0.2, // Thấp hơn để đảm bảo tính chuyên môn và nhất quán
+      // Add a timeout to prevent indefinite hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout: AI không phản hồi sau 90 giây. Vui lòng thử lại.")), 90000)
+      );
+
+      const analysisPromise = (async () => {
+        const response: GenerateContentResponse = await this.ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            temperature: 0.2,
+          }
+        });
+
+        if (!response || !response.text) {
+          throw new Error("Không nhận được nội dung từ AI.");
         }
-      });
-      
-      if (!response || !response.text) {
-        throw new Error("Không nhận được phản hồi từ AI.");
-      }
-      
-      return response.text;
+        return response.text;
+      })();
+
+      return await Promise.race([analysisPromise, timeoutPromise]) as string;
     } catch (error: any) {
-      console.error("Gemini API Error:", error);
-      throw new Error(`Lỗi phân tích: ${error?.message || "Lỗi kết nối"}`);
+      console.error("Gemini API Error Detail:", {
+        message: error?.message,
+        stack: error?.stack,
+        model: modelName
+      });
+      throw new Error(`Lỗi phân tích: ${error?.message || "Lỗi kết nối hoặc hết hạn quota"}`);
     }
   }
 
-  async chatWithExpert(history: {role: 'user' | 'model', parts: {text: string}[]}[], message: string, modelName: string = "gemini-3.1-pro-preview"): Promise<string | undefined> {
+  async chatWithExpert(history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-3.1-pro-preview"): Promise<string | undefined> {
     try {
       const chat = this.ai.chats.create({
         model: modelName,
@@ -210,7 +222,7 @@ export const analyzeInitiative = async (apiKey: string, title: string, content: 
   return service.analyzeInitiative(title, content, author, unit, modelName);
 };
 
-export const chatWithExpert = async (apiKey: string, history: {role: 'user' | 'model', parts: {text: string}[]}[], message: string, modelName: string = "gemini-3.1-pro-preview") => {
+export const chatWithExpert = async (apiKey: string, history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-3.1-pro-preview") => {
   const service = new GeminiService(apiKey);
   return service.chatWithExpert(history, message, modelName);
 };
