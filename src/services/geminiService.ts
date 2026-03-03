@@ -202,16 +202,36 @@ export class GeminiService {
   }
 
   async chatWithExpert(history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-3.1-pro-preview"): Promise<string | undefined> {
+    console.log(`[ChatExpert] Sending message: "${message.substring(0, 50)}..."`);
+    const startTime = Date.now();
+
     try {
       const chat = this.ai.chats.create({
         model: modelName,
-        history: history,
+        history: history || [],
       });
 
-      const response = await chat.sendMessage({ message });
-      return response.text;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Yêu cầu quá thời gian (90 giây). Vui lòng thử lại với nội dung ngắn hơn.")), 90000)
+      );
+
+      const chatPromise = (async () => {
+        const response = await chat.sendMessage({ message });
+
+        if (!response || !response.text) {
+          throw new Error("Không nhận được phản hồi từ AI.");
+        }
+        return response.text;
+      })();
+
+      const text = await Promise.race([chatPromise, timeoutPromise]);
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`[ChatExpert] Success in ${duration}s`);
+
+      return text;
     } catch (error: any) {
-      console.error("Gemini Chat Error:", error);
+      console.error("[ChatExpert] Error:", error);
       throw new Error(`Lỗi đối thoại: ${error?.message || "Lỗi kết nối"}`);
     }
   }

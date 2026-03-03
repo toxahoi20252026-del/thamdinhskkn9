@@ -128,11 +128,9 @@ export default function App() {
 function MainApp() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
-  const [currentUser, setCurrentUser] = useState<AppUser | null>({
-    id: 'admin-1',
-    username: 'admin',
-    fullName: 'Quản trị viên',
-    role: 'admin'
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
+    const savedUser = localStorage.getItem('edu_user');
+    return savedUser ? JSON.parse(savedUser) : null;
   });
   const [settings, setSettings] = useState<AppSettings>({
     apiKey: getEnvKey(),
@@ -182,6 +180,7 @@ function MainApp() {
   });
 
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isCheckingServer, setIsCheckingServer] = useState(true);
   const [serverStatus, setServerStatus] = useState<'ok' | 'error' | 'checking'>('checking');
 
@@ -312,10 +311,39 @@ function MainApp() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const username = formData.get('username') as string;
+    const password = formData.get('password') as string;
+
+    setLoginError(null);
+    setIsLoggingIn(true);
+
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (res.ok) {
+        const user = await res.json();
+        setCurrentUser(user);
+        localStorage.setItem('edu_user', JSON.stringify(user));
+      } else {
+        const err = await res.json();
+        setLoginError(err.error || 'Đăng nhập thất bại');
+      }
+    } catch (error) {
+      setLoginError('Lỗi kết nối máy chủ');
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const handleLogout = () => {
-    // Logout disabled
+    localStorage.removeItem('edu_user');
+    setCurrentUser(null);
+    setActiveTab('dashboard');
   };
 
   const handleJudgeSubmit = async () => {
@@ -589,8 +617,11 @@ function MainApp() {
         }
       ];
 
-      // Add previous messages to history (skip the last one as it's sent via sendMessage)
-      chatMessages.forEach(msg => {
+      // Cap history to last 10 messages to keep request size small and fast
+      const maxHistory = 10;
+      const historyMessages = chatMessages.slice(-maxHistory);
+
+      historyMessages.forEach(msg => {
         history.push({
           role: msg.role === 'user' ? 'user' : 'model',
           parts: [{ text: msg.text }]
@@ -603,7 +634,10 @@ function MainApp() {
       }
     } catch (error: any) {
       console.error("Chat error:", error);
-      setChatMessages(prev => [...prev, { role: 'ai', text: "Xin lỗi, tôi gặp lỗi khi kết nối. Vui lòng thử lại." }]);
+      const errorMsg = error.message && error.message.includes("thời gian")
+        ? "Xin lỗi, yêu cầu của bạn bị quá thời gian. Vui lòng thử lại với nội dung ngắn hơn."
+        : "Xin lỗi, tôi gặp lỗi khi kết nối. Vui lòng thử lại sau giây lát.";
+      setChatMessages(prev => [...prev, { role: 'ai', text: errorMsg }]);
     } finally {
       setIsChatting(false);
     }
@@ -1013,7 +1047,113 @@ function MainApp() {
     }
   };
 
-  // Login screen removed
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen gradient-bg flex items-center justify-center p-4 relative overflow-hidden" translate="no">
+        {/* Animated background elements */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <motion.div
+            animate={{
+              scale: [1, 1.2, 1],
+              rotate: [0, 90, 0],
+              opacity: [0.1, 0.2, 0.1]
+            }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-indigo-500 rounded-full blur-[120px]"
+          />
+          <motion.div
+            animate={{
+              scale: [1, 1.5, 1],
+              rotate: [0, -90, 0],
+              opacity: [0.05, 0.15, 0.05]
+            }}
+            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            className="absolute -bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-pink-500 rounded-full blur-[120px]"
+          />
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md relative z-10"
+        >
+          <div className="glass-card p-8 md:p-10 backdrop-blur-2xl border-white/20 shadow-2xl">
+            <div className="flex flex-col items-center mb-8">
+              <div className="w-20 h-20 gradient-accent rounded-3xl flex items-center justify-center text-white text-3xl shadow-2xl shadow-indigo-500/40 mb-6 rotate-3">
+                <GraduationCap size={40} />
+              </div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tighter mb-2">EduReview AI</h1>
+              <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px]">Hệ thống thẩm định sáng kiến</p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-4">
+                <div className="relative group">
+                  <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                  <input
+                    name="username"
+                    type="text"
+                    required
+                    placeholder="Tài khoản"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-700 placeholder:text-slate-400"
+                  />
+                </div>
+                <div className="relative group">
+                  <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                  <input
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    placeholder="Mật khẩu"
+                    className="w-full pl-12 pr-12 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-700 placeholder:text-slate-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {loginError && (
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-center space-x-3"
+                >
+                  <AlertCircle size={18} className="text-red-500 shrink-0" />
+                  <p className="text-red-600 text-xs font-bold leading-tight">{loginError}</p>
+                </motion.div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isLoggingIn}
+                className="w-full py-4 gradient-accent text-white rounded-2xl font-black shadow-xl shadow-indigo-500/20 hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center space-x-3 disabled:opacity-70 disabled:cursor-not-allowed group"
+              >
+                {isLoggingIn ? (
+                  <Loader2 size={24} className="animate-spin" />
+                ) : (
+                  <>
+                    <span className="uppercase tracking-widest text-sm">Đăng nhập</span>
+                    <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-10 pt-8 border-t border-slate-100 text-center">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                Phân hiệu trường TH&THCS Bãi Thơm
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans" translate="no">
@@ -1067,7 +1207,26 @@ function MainApp() {
           />
         </nav>
 
-        {/* Sidebar Footer Removed */}
+        <div className="mt-auto p-6 border-t border-yellow-200/50">
+          <div className="flex items-center space-x-3 mb-6 bg-white/40 p-3 rounded-2xl border border-white/40 shadow-sm backdrop-blur-sm">
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 shadow-inner">
+              <UserIcon size={20} />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-black text-slate-900 truncate">{currentUser.fullName}</span>
+              <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">
+                {currentUser.role === 'admin' ? 'Quản trị viên' : 'Giám khảo'}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => confirm('Bạn có chắc chắn muốn đăng xuất?') && handleLogout()}
+            className="w-full h-12 flex items-center justify-center space-x-2 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-lg hover:bg-slate-800 active:scale-[0.98] transition-all group"
+          >
+            <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
+            <span>Đăng xuất</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content */}
@@ -1090,6 +1249,13 @@ function MainApp() {
               </div>
             </div>
             <div className="flex items-center space-x-3 md:space-x-6">
+              <button
+                onClick={() => confirm('Bạn có chắc chắn muốn đăng xuất?') && handleLogout()}
+                className="md:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition"
+                title="Đăng xuất"
+              >
+                <LogOut size={20} />
+              </button>
             </div>
           </div>
         </header>
