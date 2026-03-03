@@ -1,0 +1,7 @@
+{
+  "name": "THẨM ĐỊNH SÁNG KIẾN AI",
+  "description": "Hệ thống thẩm định sáng kiến kinh nghiệm giáo dục thông minh sử dụng trí tuệ nhân tạo Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-[#F8FAFC] text-slate-900 antialiased selection:bg-indigo-100 selection:text-indigo-900;
+  }
+}
+
+/* Modern Academic Palette - Ultra Light Lemon Theme */
+.gradient-bg {
+  background: linear-gradient(135deg, #FEFCE8 0%, #FEF9C3 100%);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, #6366F1 0%, #A855F7 100%);
+}
+
+.glass-card {
+  @apply bg-white border border-slate-200/60 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_4px_6px_-2px_rgba(0,0,0,0.05)] rounded-2xl transition-all duration-300 hover:shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)];
+}
+
+.sidebar-item-active {
+  @apply bg-indigo-50 text-indigo-700 shadow-[inset_0_0_0_1px_rgba(99,102,241,0.1)];
+}
+
+/* Technical Dashboard Accents */
+.label-mono {
+  @apply font-mono text-[10px] uppercase tracking-[0.15em] text-slate-400 font-bold;
+}
+
+.value-technical {
+  @apply font-mono tracking-tighter font-semibold;
+}
+
+/* Prose Styling for AI Reports */
+.prose h1, .prose h2, .prose h3, .prose h4 { 
+  @apply font-black mt-8 mb-4 text-slate-900 tracking-tight border-l-4 border-indigo-500 pl-4; 
+}
+.prose h1 { @apply text-2xl; }
+.prose h2 { @apply text-xl; }
+.prose h3 { @apply text-lg; }
+.prose p { @apply mb-5 leading-relaxed text-slate-600; }
+.prose strong { @apply font-bold text-slate-900; }
+
+.prose table { 
+  @apply w-full border-collapse border border-slate-200 my-8 overflow-hidden rounded-xl shadow-sm; 
+}
+.prose th { 
+  @apply bg-slate-50 font-bold text-slate-700 p-4 text-left text-xs uppercase tracking-widest border-b border-slate-200; 
+}
+.prose td { 
+  @apply p-4 text-sm border-b border-slate-100 text-slate-600; 
+}
+.prose tr:last-child td { @apply border-b-0; }
+.prose tr:hover td { @apply bg-slate-50/50; }
+
