@@ -400,7 +400,8 @@ function MainApp() {
   const barData = useMemo(() => {
     // Group by date (last 7 entries)
     return initiatives.slice(0, 7).reverse().map(i => ({
-      name: i.title.substring(0, 10) + '...',
+      name: i.title.length > 15 ? i.title.substring(0, 12) + '...' : i.title,
+      id: i.id, // Stable unique key
       score: i.score
     }));
   }, [initiatives]);
@@ -1015,7 +1016,7 @@ function MainApp() {
   // Login screen removed
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans">
+    <div className="flex min-h-screen bg-slate-50 font-sans" translate="no">
       {/* Sidebar */}
       <aside className="hidden md:flex w-72 gradient-bg flex-col sticky top-0 h-screen shadow-xl z-40 border-r border-yellow-200/50">
         <div className="p-8">
@@ -1094,7 +1095,7 @@ function MainApp() {
         </header>
 
         <div className="p-4 md:p-10 pb-24 md:pb-10 overflow-y-auto max-w-7xl mx-auto w-full">
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="popLayout">
             {/* ... rest of the tabs ... */}
             {activeTab === 'dashboard' && (
               <motion.div
