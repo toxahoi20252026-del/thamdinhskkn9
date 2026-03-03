@@ -1871,7 +1871,7 @@ function MainApp() {
       </nav>
 
       {/* User Management Modal */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {isUserModalOpen && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
             <motion.div
@@ -1950,7 +1950,7 @@ function MainApp() {
       </AnimatePresence>
 
       {/* Success Toast */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {isSaved && (
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -1969,7 +1969,7 @@ function MainApp() {
       </AnimatePresence>
 
       {/* Details Modal */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {viewingInitiative && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[120] p-4">
             <motion.div
@@ -2065,7 +2065,7 @@ function MainApp() {
       </AnimatePresence>
 
       {/* Grading Modal */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {selectedInitiative && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
             <motion.div
