@@ -136,7 +136,7 @@ function MainApp() {
   });
   const [settings, setSettings] = useState<AppSettings>({
     apiKey: getEnvKey(),
-    model: 'gemini-1.5-flash'
+    model: 'gemini-2.5-flash'
   });
 
   // Analysis state
@@ -2126,11 +2126,11 @@ function MainApp() {
                         defaultValue={settings.model}
                         className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary transition bg-white"
                       >
-                        <option value="gemini-2.0-flash">Gemini 3 Flash (Nhanh, ổn định)</option>
-                        <option value="gemini-1.5-flash">Gemini Flash Latest</option>
-                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (Mạnh mẽ, đa năng)</option>
-                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Thông minh, chuyên sâu)</option>
-                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Nhanh, ổn định - được đặt làm mặc định)</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Mặc định mới)</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Nâng cao)</option>
+                        <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
+                        <option value="gemini-3-flash-preview">Gemini 3 Flash (Thử nghiệm)</option>
+                        <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
                       </select>
                     </div>
                     <button

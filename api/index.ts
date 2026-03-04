@@ -153,7 +153,7 @@ app.post("/api/grades", (req, res) => {
 // Settings API
 app.get("/api/settings", (_req, res) => {
   try {
-    res.json(store.settings || { apiKey: "", model: "gemini-1.5-flash" });
+    res.json(store.settings || { apiKey: "", model: "gemini-2.5-flash" });
   } catch (error) {
     console.error("Failed to fetch settings:", error);
     res.status(500).json({ error: "Failed to fetch settings" });
