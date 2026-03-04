@@ -38,7 +38,8 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  Paperclip
+  Paperclip,
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as mammoth from 'mammoth';
