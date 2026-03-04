@@ -172,7 +172,7 @@ export class GeminiService {
     const analyzeWithRetry = async (retryCount = 0): Promise<string> => {
       try {
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout: AI không phản hồi sau 90 giây. Vui lòng thử lại.")), 90000)
+          setTimeout(() => reject(new Error("Timeout: AI không phản hồi sau 180 giây. Vui lòng thử lại.")), 180000)
         );
 
         const analysisPromise = (async () => {
@@ -255,7 +255,7 @@ export class GeminiService {
         ];
 
         const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Yêu cầu quá thời gian (90 giây). Vui lòng thử lại với nội dung ngắn hơn.")), 90000)
+          setTimeout(() => reject(new Error("Yêu cầu quá thời gian (180 giây). Vui lòng thử lại với nội dung ngắn hơn.")), 180000)
         );
 
         const chatPromise = (async () => {
