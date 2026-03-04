@@ -1646,9 +1646,9 @@ function MainApp() {
                           ? "bg-white border border-slate-200 shadow-xl shadow-indigo-50/50"
                           : "bg-slate-50 border border-dashed border-slate-300"
                       )}>
-                        {!isAnalyzing && !analysisResult && (
+                        {!isAnalyzing && !analysisResult && !analysisError && (
                           <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-60 absolute inset-0">
-                            <Wand2 size={48} className="text-slate-300" />
+                            <Zap size={48} className="text-slate-300" />
                             <p>Kết quả thẩm định từ AI<br />sẽ hiển thị tại đây</p>
                           </div>
                         )}
@@ -1660,16 +1660,32 @@ function MainApp() {
                           </div>
                         )}
 
-                        {!isAnalyzing && analysisError && (
-                          <div className="flex flex-col items-center justify-center h-full text-center space-y-3 absolute inset-0 p-8">
-                            <AlertCircle size={48} className="text-red-400" />
-                            <p className="text-red-600 font-bold text-base">Phân tích thất bại</p>
-                            <p className="text-sm text-slate-500 bg-red-50 border border-red-100 rounded-lg p-3">{analysisError}</p>
-                            {analysisError.includes("API Key") || analysisError.includes("quota") || analysisError.includes("giới hạn") ? (
-                              <p className="text-xs text-slate-400">Vui lòng kiểm tra lại API Key trong mục Cấu hình hệ thống.</p>
-                            ) : (
-                              <p className="text-xs text-slate-400">Đây là lỗi tạm thời từ máy chủ AI. Vui lòng chờ vài giây rồi nhấn nút "Chạy AI" lần nữa.</p>
-                            )}
+                        {analysisError && (
+                          <div className="flex flex-col items-center justify-center h-full space-y-6 p-4">
+                            <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center shadow-inner">
+                              <AlertCircle size={32} />
+                            </div>
+                            <div className="text-center">
+                              <h3 className="text-lg font-black text-red-600 mb-2 uppercase tracking-tight">Phân tích thất bại</h3>
+                              <div className="bg-red-50/50 border border-red-100 rounded-2xl p-4 max-w-lg mb-4">
+                                <p className="text-[11px] text-red-500 font-medium leading-relaxed">
+                                  {analysisError}
+                                </p>
+                              </div>
+
+                              {analysisError.toLowerCase().includes('quota') && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left">
+                                  <p className="text-xs font-bold text-amber-900 mb-1 flex items-center">
+                                    <Zap size={14} className="mr-1" /> Gợi ý khắc phục:
+                                  </p>
+                                  <p className="text-[10px] text-amber-700 leading-normal">
+                                    Tài khoản của bạn đã hết hạn mức cho model này (GEMINI 2.0 FLASH). Vui lòng vào <strong>Cấu hình hệ thống</strong> và chuyển sang <strong>Gemini 1.5 Flash (Mặc định)</strong> để tiếp tục sử dụng miễn phí hoặc kiểm tra lại API Key.
+                                  </p>
+                                </div>
+                              )}
+
+                              <p className="text-[10px] text-slate-400 mt-4 italic">Vui lòng kiểm tra lại API Key trong mục Cấu hình hệ thống.</p>
+                            </div>
                           </div>
                         )}
 
