@@ -37,7 +37,8 @@ import {
   ChevronRight,
   AlertCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Paperclip
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as mammoth from 'mammoth';
@@ -134,7 +135,7 @@ function MainApp() {
   });
   const [settings, setSettings] = useState<AppSettings>({
     apiKey: getEnvKey(),
-    model: 'gemini-3.1-pro-preview'
+    model: 'gemini-1.5-flash'
   });
 
   // Analysis state
@@ -160,6 +161,8 @@ function MainApp() {
   const [isCopied, setIsCopied] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [activeChatInitiativeId, setActiveChatInitiativeId] = useState<string | null>(null);
+  const [isUploadingChatFile, setIsUploadingChatFile] = useState(false);
 
   // Judge state
   const [selectedInitiative, setSelectedInitiative] = useState<Initiative | null>(null);
@@ -231,7 +234,7 @@ function MainApp() {
             const envKey = getEnvKey();
             setSettings({
               apiKey: (savedSettings && savedSettings.apiKey) || envKey,
-              model: (savedSettings && savedSettings.model) || 'gemini-3.1-pro-preview'
+              model: (savedSettings && savedSettings.model) || 'gemini-1.5-flash'
             });
           } catch (e) {
             console.error("Error parsing settings:", e);
@@ -249,6 +252,18 @@ function MainApp() {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (viewingInitiative) {
+      setChatMessages(viewingInitiative.chatHistory || []);
+      setActiveChatInitiativeId(viewingInitiative.id);
+    } else if (activeTab === 'analysis' && analysisResult) {
+      // Keep state if on analysis tab with result
+    } else {
+      setChatMessages([]);
+      setActiveChatInitiativeId(null);
+    }
+  }, [viewingInitiative, activeTab]);
 
   useEffect(() => {
     if (activeTab === 'users' && currentUser?.role === 'admin') {
@@ -523,6 +538,8 @@ function MainApp() {
         });
 
         setInitiatives(prev => [newInitiative, ...prev]);
+        setActiveChatInitiativeId(newInitiative.id);
+        setChatMessages([]); // Reset chat for new analysis
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Lỗi không xác định';
@@ -592,6 +609,54 @@ function MainApp() {
     }
   };
 
+  const handleChatFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingChatFile(true);
+    try {
+      let extractedText = '';
+      if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        extractedText = result.value;
+      } else if (file.type === 'application/pdf') {
+        const arrayBuffer = await file.arrayBuffer();
+
+        if (!pdfjs || !pdfjs.getDocument) {
+          throw new Error("Thư viện xử lý PDF chưa sẵn sàng.");
+        }
+
+        const loadingTask = pdfjs.getDocument({
+          data: new Uint8Array(arrayBuffer),
+          useWorkerFetch: false,
+          isEvalSupported: false
+        });
+
+        const pdf = await loadingTask.promise;
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          extractedText += textContent.items.map((item: any) => item.str || '').join(' ') + '\n';
+        }
+      } else {
+        alert('Chỉ hỗ trợ file .docx và .pdf');
+        return;
+      }
+
+      if (extractedText.trim()) {
+        const snippet = extractedText.length > 5000 ? extractedText.substring(0, 5000) + "..." : extractedText;
+        setChatInput(prev => prev + (prev ? '\n\n' : '') + `[NỘI DUNG TÀI LIỆU ĐÍNH KÈM: ${file.name}]\n${snippet}`);
+      }
+    } catch (error) {
+      console.error('Error reading chat file:', error);
+      alert('Lỗi khi đọc file đính kèm. Vui lòng thử lại.');
+    } finally {
+      setIsUploadingChatFile(false);
+      e.target.value = '';
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!chatInput.trim() || !analysisResult || !settings.apiKey) return;
 
@@ -630,7 +695,37 @@ function MainApp() {
 
       const response = await chatWithExpert(apiKey, history, userMsg, settings.model);
       if (response) {
-        setChatMessages(prev => [...prev, { role: 'ai', text: response }]);
+        const aiMsg = { role: 'ai' as const, text: response };
+        const updatedMessages = [...newMessages, aiMsg];
+        setChatMessages(updatedMessages);
+
+        // Sync to backend if we have an active initiative
+        const targetId = activeChatInitiativeId || viewingInitiative?.id;
+        if (targetId) {
+          const initIdx = initiatives.findIndex(i => i.id === targetId);
+          if (initIdx !== -1) {
+            const updatedInit = { ...initiatives[initIdx], chatHistory: updatedMessages };
+
+            // Local update
+            const newInits = [...initiatives];
+            newInits[initIdx] = updatedInit;
+            setInitiatives(newInits);
+            if (viewingInitiative?.id === targetId) {
+              setViewingInitiative(updatedInit);
+            }
+
+            // Backend update
+            try {
+              await fetch('/api/initiatives', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedInit)
+              });
+            } catch (e) {
+              console.error("Failed to save chat history to backend:", e);
+            }
+          }
+        }
       }
     } catch (error: any) {
       console.error("Chat error:", error);
@@ -1201,7 +1296,7 @@ function MainApp() {
           <SidebarItem
             icon={<Settings size={20} />}
             label="Cấu hình hệ thống"
-            subLabel={settings.model === 'gemini-3.1-pro-preview' ? 'Pro (Thông minh)' : 'Flash (Nhanh)'}
+            subLabel={settings.model === 'gemini-1.5-pro' ? 'Pro (Thông minh)' : settings.model === 'gemini-1.5-flash' ? 'Flash (Nhanh)' : 'Flash 2.0 (Thế hệ mới)'}
             active={activeTab === 'settings'}
             onClick={() => setActiveTab('settings')}
           />
@@ -1244,7 +1339,7 @@ function MainApp() {
               <div className="flex items-center space-x-2 mt-0.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
                 <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  Hệ thống đang hoạt động • {settings.model === 'gemini-3.1-pro-preview' ? 'Gemini 3.1 Pro' : 'Gemini 3 Flash'}
+                  Hệ thống đang hoạt động • {settings.model === 'gemini-1.5-pro' ? 'Gemini 1.5 Pro' : settings.model === 'gemini-1.5-flash' ? 'Gemini 1.5 Flash' : 'Gemini 2.0 Flash'}
                 </span>
               </div>
             </div>
@@ -1718,6 +1813,21 @@ function MainApp() {
                                   >
                                     {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
                                   </button>
+                                  <button
+                                    onClick={() => document.getElementById('chat-file-upload')?.click()}
+                                    disabled={isUploadingChatFile}
+                                    className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-slate-200 transition disabled:opacity-50"
+                                    title="Đính kèm tài liệu minh chứng"
+                                  >
+                                    {isUploadingChatFile ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
+                                  </button>
+                                  <input
+                                    id="chat-file-upload"
+                                    type="file"
+                                    className="hidden"
+                                    accept=".docx,.pdf"
+                                    onChange={handleChatFileUpload}
+                                  />
                                   <input
                                     type="text"
                                     value={chatInput}
@@ -1999,9 +2109,11 @@ function MainApp() {
                         defaultValue={settings.model}
                         className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary transition bg-white"
                       >
-                        <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Thông minh nhất)</option>
-                        <option value="gemini-3-flash-preview">Gemini 3 Flash (Nhanh, ổn định)</option>
-                        <option value="gemini-flash-latest">Gemini Flash Latest</option>
+                        <option value="gemini-2.0-flash">Gemini 3 Flash (Nhanh, ổn định)</option>
+                        <option value="gemini-1.5-flash">Gemini Flash Latest</option>
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (Mạnh mẽ, đa năng)</option>
+                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Thông minh, chuyên sâu)</option>
+                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Nhanh, ổn định - được đặt làm mặc định)</option>
                       </select>
                     </div>
                     <button

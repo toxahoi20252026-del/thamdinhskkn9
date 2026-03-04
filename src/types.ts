@@ -31,6 +31,7 @@ export interface Initiative {
   aiRisk?: string;
   similarity?: number;
   grades?: Grade[]; // Individual judge grades
+  chatHistory?: { role: 'user' | 'ai', text: string }[];
 }
 
 export interface User {

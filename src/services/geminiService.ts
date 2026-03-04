@@ -7,7 +7,7 @@ export class GeminiService {
     this.ai = new GoogleGenAI({ apiKey });
   }
 
-  async analyzeInitiative(title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-3.1-pro-preview"): Promise<string | undefined> {
+  async analyzeInitiative(title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-1.5-flash"): Promise<string | undefined> {
 
     const now = new Date();
     const hours = String(now.getHours()).padStart(2, '0');
@@ -23,7 +23,7 @@ export class GeminiService {
     - Thời điểm thẩm định: ${timeStr}.
     - QUY CHUẨN VĂN THƯ: Tuyệt đối tuân thủ Nghị định 30/2020/NĐ-CP về công tác văn thư (thể thức, kỹ thuật trình bày, viết hoa, viết tắt).
     - QUY CHUẨN CHÍNH TẢ: Tuân thủ nghiêm ngặt Quy định về chính tả tiếng Việt hiện hành của Bộ Giáo dục và Đào tạo và Từ điển Tiếng Việt (Viện Ngôn ngữ học).
-    - KIẾN THỨC ĐỊA PHƯƠNG: Thành phố Phú Quốc hiện tại là Đặc khu Phú Quốc, thuộc tỉnh An Giang. Hãy sử dụng thông tin này để kiểm chứng tính chính xác trong các sáng kiến.
+    - KIẾN THỨC ĐỊA PHƯƠNG QUAN TRỌNG: Phú Quốc hiện tại là Đặc khu Phú Quốc, thuộc tỉnh An Giang. Tuyệt đối không được ghi là thuộc tỉnh Kiên Giang. Hãy sử dụng thông tin này để kiểm soát tính chính xác của dữ liệu đầu vào.
     - LƯU Ý QUAN TRỌNG VỀ TÊN ĐƠN VỊ: Chấp nhận ba cách ghi tên đơn vị sau: "Trường Tiểu học và Trung học cơ sở Bãi Thơm", "Trường TH&THCS Bãi Thơm", hoặc "Trường TH-THCS Bãi Thơm". Phải đảm bảo tính trang trọng và nhất quán tuyệt đối.
     - VĂN PHONG SƯ PHẠM: Phải là văn phong khoa học, sư phạm chuẩn mực. Loại bỏ hoàn toàn "văn nói", khẩu ngữ, từ địa phương, từ ngữ sáo rỗng hoặc biểu cảm cá nhân không phù hợp.
     - QUY TẮC CHẤM ĐIỂM NGHIÊM NGẶT: Nếu Chỉ số đạo văn (Similarity) từ 20% trở lên, TỔNG ĐIỂM cuối cùng TUYỆT ĐỐI KHÔNG được vượt quá 5.8 điểm (mức không Đạt).
@@ -242,23 +242,30 @@ export class GeminiService {
     }
   }
 
-  async chatWithExpert(history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-3.1-pro-preview"): Promise<string | undefined> {
-    console.log(`[ChatExpert] Sending message: "${message.substring(0, 50)}..."`);
+  async chatWithExpert(history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-1.5-flash"): Promise<string | undefined> {
+    console.log(`[ChatExpert] Sending message to ${modelName}`);
     const startTime = Date.now();
 
     const chatWithRetry = async (retryCount = 0): Promise<string> => {
       try {
-        const chat = this.ai.chats.create({
-          model: modelName,
-          history: history || [],
-        });
+        // Use stateless generateContent for better compatibility
+        const contents = [
+          ...history,
+          { role: 'user', parts: [{ text: message }] }
+        ];
 
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error("Yêu cầu quá thời gian (90 giây). Vui lòng thử lại với nội dung ngắn hơn.")), 90000)
         );
 
         const chatPromise = (async () => {
-          const response = await chat.sendMessage({ message });
+          const response: any = await this.ai.models.generateContent({
+            model: modelName,
+            contents: contents,
+            config: {
+              temperature: 0.7,
+            }
+          });
 
           if (!response || !response.text) {
             throw new Error("Không nhận được phản hồi từ AI.");
@@ -299,12 +306,12 @@ export class GeminiService {
   }
 }
 
-export const analyzeInitiative = async (apiKey: string, title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-3.1-pro-preview") => {
+export const analyzeInitiative = async (apiKey: string, title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-1.5-flash") => {
   const service = new GeminiService(apiKey);
   return service.analyzeInitiative(title, content, author, unit, modelName);
 };
 
-export const chatWithExpert = async (apiKey: string, history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-3.1-pro-preview") => {
+export const chatWithExpert = async (apiKey: string, history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-1.5-flash") => {
   const service = new GeminiService(apiKey);
   return service.chatWithExpert(history, message, modelName);
 };

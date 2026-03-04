@@ -7,7 +7,7 @@
     "dev": "npx tsx api/index.ts",
     "build": "npx vite build",
     "preview": "npx vite preview",
-    "clean": "rm -rf dist",
+    "clean": "powershell -Command \"if (Test-Path dist) { Remove-Item -Path dist -Recurse -Force }\"",
     "lint": "npx tsc --noEmit",
     "start": "npx tsx api/index.ts"
   },
