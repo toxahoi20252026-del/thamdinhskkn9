@@ -169,35 +169,76 @@ export class GeminiService {
     Similarity: [0-100]%
     [/SCORES]`;
 
-    try {
-      // Add a timeout to prevent indefinite hanging
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout: AI không phản hồi sau 90 giây. Vui lòng thử lại.")), 90000)
-      );
+    const analyzeWithRetry = async (retryCount = 0): Promise<string> => {
+      try {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout: AI không phản hồi sau 90 giây. Vui lòng thử lại.")), 90000)
+        );
 
-      const analysisPromise = (async () => {
-        const response: GenerateContentResponse = await this.ai.models.generateContent({
-          model: modelName,
-          contents: prompt,
-          config: {
-            temperature: 0.2,
+        const analysisPromise = (async () => {
+          const response: GenerateContentResponse = await this.ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: {
+              temperature: 0.2,
+            }
+          });
+
+          if (!response || !response.text) {
+            throw new Error("Không nhận được nội dung từ AI.");
           }
-        });
+          return response.text;
+        })();
 
-        if (!response || !response.text) {
-          throw new Error("Không nhận được nội dung từ AI.");
+        return await Promise.race([analysisPromise, timeoutPromise]) as string;
+      } catch (error: any) {
+        const isRetryable = error?.message?.includes("503") ||
+          error?.message?.includes("429") ||
+          error?.message?.includes("UNAVAILABLE") ||
+          error?.message?.includes("RESOURCE_EXHAUSTED");
+
+        if (isRetryable && retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 2000; // Exponential backoff: 2s, 4s, 8s
+          console.log(`Retry attempt ${retryCount + 1} due to service instability. Waiting ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          return analyzeWithRetry(retryCount + 1);
         }
-        return response.text;
-      })();
+        throw error;
+      }
+    };
 
-      return await Promise.race([analysisPromise, timeoutPromise]) as string;
+    try {
+      return await analyzeWithRetry();
     } catch (error: any) {
       console.error("Gemini API Error Detail:", {
         message: error?.message,
         stack: error?.stack,
         model: modelName
       });
-      throw new Error(`Lỗi phân tích: ${error?.message || "Lỗi kết nối hoặc hết hạn quota"}`);
+
+      let errorMsg = error?.message || "Lỗi kết nối hoặc hết hạn quota";
+
+      // Try to parse JSON error from Gemini if present
+      if (errorMsg.includes('{')) {
+        try {
+          const jsonPart = errorMsg.substring(errorMsg.indexOf('{'));
+          const parsed = JSON.parse(jsonPart);
+          if (parsed.error?.message) {
+            errorMsg = parsed.error.message;
+          }
+        } catch (e) {
+          // Fallback to original message
+        }
+      }
+
+      // Localize common errors
+      if (errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE")) {
+        errorMsg = "Máy chủ AI hiện đang bận do nhu cầu cao. Vui lòng thử lại sau vài giây.";
+      } else if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
+        errorMsg = "Đã vượt quá giới hạn yêu cầu (Quota). Vui lòng đợi một lát trước khi thử lại.";
+      }
+
+      throw new Error(`Lỗi phân tích: ${errorMsg}`);
     }
   }
 
@@ -205,34 +246,55 @@ export class GeminiService {
     console.log(`[ChatExpert] Sending message: "${message.substring(0, 50)}..."`);
     const startTime = Date.now();
 
-    try {
-      const chat = this.ai.chats.create({
-        model: modelName,
-        history: history || [],
-      });
+    const chatWithRetry = async (retryCount = 0): Promise<string> => {
+      try {
+        const chat = this.ai.chats.create({
+          model: modelName,
+          history: history || [],
+        });
 
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Yêu cầu quá thời gian (90 giây). Vui lòng thử lại với nội dung ngắn hơn.")), 90000)
-      );
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Yêu cầu quá thời gian (90 giây). Vui lòng thử lại với nội dung ngắn hơn.")), 90000)
+        );
 
-      const chatPromise = (async () => {
-        const response = await chat.sendMessage({ message });
+        const chatPromise = (async () => {
+          const response = await chat.sendMessage({ message });
 
-        if (!response || !response.text) {
-          throw new Error("Không nhận được phản hồi từ AI.");
+          if (!response || !response.text) {
+            throw new Error("Không nhận được phản hồi từ AI.");
+          }
+          return response.text;
+        })();
+
+        return await Promise.race([chatPromise, timeoutPromise]);
+      } catch (error: any) {
+        const isRetryable = error?.message?.includes("503") ||
+          error?.message?.includes("429") ||
+          error?.message?.includes("UNAVAILABLE");
+
+        if (isRetryable && retryCount < 2) {
+          const delay = Math.pow(2, retryCount) * 1500;
+          await new Promise(r => setTimeout(r, delay));
+          return chatWithRetry(retryCount + 1);
         }
-        return response.text;
-      })();
+        throw error;
+      }
+    };
 
-      const text = await Promise.race([chatPromise, timeoutPromise]);
-
+    try {
+      const text = await chatWithRetry();
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`[ChatExpert] Success in ${duration}s`);
-
       return text;
     } catch (error: any) {
       console.error("[ChatExpert] Error:", error);
-      throw new Error(`Lỗi đối thoại: ${error?.message || "Lỗi kết nối"}`);
+      let errorMsg = error?.message || "Lỗi kết nối";
+
+      if (errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE")) {
+        errorMsg = "Máy chủ bận, vui lòng thử lại.";
+      }
+
+      throw new Error(`Lỗi đối thoại: ${errorMsg}`);
     }
   }
 }

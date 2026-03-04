@@ -1570,7 +1570,11 @@ function MainApp() {
                             <AlertCircle size={48} className="text-red-400" />
                             <p className="text-red-600 font-bold text-base">Phân tích thất bại</p>
                             <p className="text-sm text-slate-500 bg-red-50 border border-red-100 rounded-lg p-3">{analysisError}</p>
-                            <p className="text-xs text-slate-400">Vui lòng kiểm tra lại API Key trong mục Cấu hình hệ thống.</p>
+                            {analysisError.includes("API Key") || analysisError.includes("quota") || analysisError.includes("giới hạn") ? (
+                              <p className="text-xs text-slate-400">Vui lòng kiểm tra lại API Key trong mục Cấu hình hệ thống.</p>
+                            ) : (
+                              <p className="text-xs text-slate-400">Đây là lỗi tạm thời từ máy chủ AI. Vui lòng chờ vài giây rồi nhấn nút "Chạy AI" lần nữa.</p>
+                            )}
                           </div>
                         )}
 
