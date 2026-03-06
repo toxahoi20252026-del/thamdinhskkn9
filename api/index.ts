@@ -1,11 +1,17 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import { sql } from "@vercel/postgres";
+import { createPool } from "@vercel/postgres";
 import "dotenv/config";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Connect using custom prefix "KHO" env vars
+const pool = createPool({
+  connectionString: process.env.KHO_URL || process.env.POSTGRES_URL,
+});
+const sql = pool.sql;
 
 const app = express();
 app.use(express.json({ limit: "10mb" }));
