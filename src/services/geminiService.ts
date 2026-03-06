@@ -119,18 +119,18 @@ export class GeminiService {
     5. Chỉ số đạo văn (Similarity): [X]% (Ước tính)
 
     IV. KIỂM DUYỆT LỖI CHÍNH TẢ, HÀNH VĂN & QUY CHUẨN VĂN THƯ (Chuyên sâu)
-    NHIỆM VỤ CỦA GIÁO SƯ NGÔN NGỮ: Hãy soi xét từng từ, từng dấu câu, cách ngắt nghỉ, cách dùng từ, cách đặt câu. Tìm ra TẤT CẢ các lỗi:
+    NHIỆM VỤ CỦA GIÁO SƯ NGÔN NGỮ: Hãy soi xét từng từ, từng dấu câu, cách ngắt nghỉ, cách dùng từ, cách đặt câu. Hãy tìm dưới 100 lỗi và tập trung đặc biệt vào các lỗi chính tả (thiếu dấu, sai dấu thanh, phụ âm đầu/vần, lỗi viết chuẩn/nhất quán...):
     1. Lỗi chính tả, đánh máy, dấu câu (Theo quy định Bộ GD&ĐT).
-    2. Lỗi thể thức văn bản (Theo Nghị định 30/2020/NĐ-CP): Viết hoa, trình bày đề mục, căn lề, font chữ (nếu có thông tin).
-    3. Lỗi văn phong: Sử dụng "văn nói", từ ngữ thiếu tính sư phạm, sáo rỗng, lặp từ, rườm rà.
-    4. Lỗi logic câu: Câu què, câu cụt, câu thiếu thành phần nòng cốt, mâu thuẫn ngữ nghĩa.
+    2. Lỗi thể thức văn bản (Theo Nghị định 30/2020/NĐ-CP): Viết hoa, trình bày đề mục, căn lề.
+    3. Lỗi văn phong: Sử dụng "văn nói", từ ngữ thiếu tính sư phạm, lặp từ, rườm rà.
+    4. Lỗi logic câu: Câu què, câu cụt, mâu thuẫn ngữ nghĩa.
     
-    Chỉ số chuyên nghiệp (Professionalism Index): [X]/100 (Dựa trên mật độ lỗi và sự chuẩn mực của văn bản)
+    Chỉ số chuyên nghiệp (Professionalism Index): [X]/100
     
     Trình bày dưới dạng bảng Markdown chuẩn (có đầy đủ đường kẻ | ở đầu và cuối dòng):
-    | STT | Lỗi sai (Trích dẫn chính xác) | Loại lỗi / Căn cứ quy chuẩn | Cách sửa tối ưu (Văn phong sư phạm) |
-    |---|---|---|---|
-    | 1 | ... | ... | ... |
+    | STT | Lỗi sai (Trích dẫn chính xác) | Vị trí sai | Loại lỗi / Căn cứ quy chuẩn | Cách sửa tối ưu (Văn phong sư phạm) |
+    |---|---|---|---|---|
+    | 1 | ... | (Phần nào, trang mấy, dòng mấy) | ... | ... |
 
     V. BẢN ĐỒ PHÁT TRIỂN SỰ NGHIỆP & CHUYỂN ĐỔI SỐ
     1. Mục tiêu ngắn hạn (Kỹ năng cần bổ sung ngay): ...

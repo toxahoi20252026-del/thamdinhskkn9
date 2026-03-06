@@ -182,6 +182,7 @@ function MainApp() {
     fullName: '',
     role: 'judge' as 'admin' | 'judge'
   });
+  const [isSavingUser, setIsSavingUser] = useState(false);
 
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -286,6 +287,12 @@ function MainApp() {
 
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userForm.username || !userForm.fullName || (!editingUser && !userForm.password)) {
+      alert("Vui lòng điền đầy đủ thông tin");
+      return;
+    }
+
+    setIsSavingUser(true);
     const newUser = {
       id: editingUser?.id || `user-${Date.now()}`,
       ...userForm
@@ -299,13 +306,19 @@ function MainApp() {
       });
 
       if (res.ok) {
-        fetchUsers();
+        await fetchUsers();
         setIsUserModalOpen(false);
         setEditingUser(null);
         setUserForm({ username: '', password: '', fullName: '', role: 'judge' });
+      } else {
+        const err = await res.json();
+        alert(err.error || "Lỗi khi lưu người dùng");
       }
     } catch (error) {
-      alert("Lỗi khi lưu người dùng");
+      console.error(error);
+      alert("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSavingUser(false);
     }
   };
 
@@ -953,8 +966,24 @@ function MainApp() {
               tableRowCounter = 1; // Start counting from 1 after header
             }
             return new TableRow({
-              children: row.map(cellText => {
+              children: row.map((cellText, colIndex) => {
+                // Determine column width percentage
+                let colWidth = 20; // Default
+                if (row.length === 5) {
+                  if (colIndex === 0) colWidth = 5; // STT
+                  if (colIndex === 1) colWidth = 25; // Lỗi sai
+                  if (colIndex === 2) colWidth = 20; // Vị trí sai
+                  if (colIndex === 3) colWidth = 25; // Loại lỗi
+                  if (colIndex === 4) colWidth = 25; // Cách sửa
+                } else if (row.length === 4) {
+                  if (colIndex === 0) colWidth = 8; // STT
+                  if (colIndex === 1) colWidth = 30; // Lỗi sai
+                  if (colIndex === 2) colWidth = 30; // Loại lỗi
+                  if (colIndex === 3) colWidth = 30; // Cách sửa
+                }
+
                 return new TableCell({
+                  width: { size: colWidth, type: WidthType.PERCENTAGE },
                   children: [new Paragraph({
                     children: cellText.split(/<br\s*\/?>/i).flatMap((text, idx, arr) => [
                       new TextRun({ text: text.replace(/[*_]/g, ''), size: 28, bold: rowIndex === 0 }),
@@ -1036,6 +1065,7 @@ function MainApp() {
             }),
           ],
           spacing: { before: 300, after: 200 },
+          alignment: AlignmentType.JUSTIFIED,
         }));
         continue;
       }
@@ -1054,6 +1084,7 @@ function MainApp() {
             }),
           ],
           spacing: { before: 250, after: 150 },
+          alignment: AlignmentType.JUSTIFIED,
         }));
 
         const content = subHeadingMatch[2].trim();
@@ -1076,6 +1107,7 @@ function MainApp() {
             new TextRun({ text: labelMatch[1] + ":", bold: true, size: 28 }),
           ],
           spacing: { before: 150, after: 100 },
+          alignment: AlignmentType.JUSTIFIED,
         }));
 
         const content = labelMatch[2].trim();
@@ -1095,6 +1127,7 @@ function MainApp() {
         docElements.push(new Paragraph({
           children: [new TextRun({ text: cleanLine, bold: true, size: 28 })],
           spacing: { before: 100, after: 100 },
+          alignment: AlignmentType.JUSTIFIED,
         }));
         continue;
       }
@@ -2316,9 +2349,20 @@ function MainApp() {
                 <div className="pt-4">
                   <button
                     type="submit"
-                    className="w-full py-4 gradient-bg text-white rounded-xl font-black shadow-lg hover:opacity-90 transition"
+                    disabled={isSavingUser}
+                    className={cn(
+                      "w-full py-4 text-white rounded-xl font-black shadow-lg hover:opacity-90 transition flex items-center justify-center space-x-2",
+                      isSavingUser ? "bg-slate-400 cursor-not-allowed" : "gradient-accent"
+                    )}
                   >
-                    {editingUser ? 'CẬP NHẬT' : 'TẠO TÀI KHOẢN'}
+                    {isSavingUser ? (
+                      <>
+                        <Loader2 size={20} className="animate-spin" />
+                        <span>ĐANG XỬ LÝ...</span>
+                      </>
+                    ) : (
+                      <span>{editingUser ? 'CẬP NHẬT THÔNG TIN' : 'TẠO TÀI KHOẢN NGAY'}</span>
+                    )}
                   </button>
                 </div>
               </form>
