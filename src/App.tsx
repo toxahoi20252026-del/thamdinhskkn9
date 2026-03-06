@@ -407,7 +407,7 @@ function MainApp() {
 
   const stats = useMemo(() => {
     const total = initiatives.length;
-    const passed = initiatives.filter(i => i.score >= 5).length; // 5/10 is passing
+    const passed = initiatives.filter(i => i.score >= 6).length; // 6/10 is passing
     const pending = 0;
     const avg = total > 0 ? (initiatives.reduce((acc, curr) => acc + curr.score, 0) / total).toFixed(1) : '0.0';
 
@@ -427,10 +427,10 @@ function MainApp() {
 
   const chartData = useMemo(() => {
     const categories = [
-      { name: 'Giỏi (8+)', value: initiatives.filter(i => i.score >= 8).length, color: '#10B981' },
-      { name: 'Khá (6.5-7.9)', value: initiatives.filter(i => i.score >= 6.5 && i.score < 8).length, color: '#6366F1' },
-      { name: 'Đạt (5-6.4)', value: initiatives.filter(i => i.score >= 5 && i.score < 6.5).length, color: '#F59E0B' },
-      { name: 'Không đạt (<5)', value: initiatives.filter(i => i.score < 5).length, color: '#F43F5E' },
+      { name: 'Giỏi (8.5-10)', value: initiatives.filter(i => i.score >= 8.5).length, color: '#10B981' },
+      { name: 'Khá (7.0-8.4)', value: initiatives.filter(i => i.score >= 7 && i.score < 8.5).length, color: '#6366F1' },
+      { name: 'Đạt (6.0-6.9)', value: initiatives.filter(i => i.score >= 6 && i.score < 7).length, color: '#F59E0B' },
+      { name: 'Không đạt (<6)', value: initiatives.filter(i => i.score < 6).length, color: '#F43F5E' },
     ].filter(c => c.value > 0);
 
     // If no data, show some dummy for visual
@@ -475,7 +475,13 @@ function MainApp() {
       similarity: getVal(/Similarity:\s*([\d.]+)/),
     };
 
-    const total = getVal(/TỔNG ĐIỂM:\s*([\d.]+)/);
+    let total = getVal(/TỔNG ĐIỂM:\s*([\d.]+)/);
+
+    // Enforce logic rule: If similarity >= 25%, score cannot exceed 5.8.
+    if (detailed.similarity >= 25 && total > 5.8) {
+      total = 5.8;
+    }
+
     return { total, detailed };
   };
 
@@ -514,9 +520,43 @@ function MainApp() {
       const result = await analyzeInitiative(apiKey, effectiveTitle, skContent + referenceContext, skAuthor || 'Chưa rõ', skUnit || 'Trường TH&THCS Bãi Thơm', settings.model);
 
       if (result) {
-        setAnalysisResult(result);
-        const { total, detailed } = parseScores(result);
+        // Clean result: remove unwanted salutations and specific unwanted errors
+        let tableCounter = 0;
+        const cleanedResult = result.split('\n')
+          .filter(line => {
+            const trimmed = line.trim();
+            if (trimmed.toUpperCase().startsWith('KÍNH GỬI')) return false;
+
+            // Check for Motto alignment error (CỘNG HÒA XÃ HỘI + căn giữa)
+            if (trimmed.includes('|') && trimmed.toUpperCase().includes('CỘNG HÒA XÃ HỘI') && trimmed.toLowerCase().includes('căn giữa')) {
+              return false;
+            }
+            return true;
+          })
+          .map(line => {
+            // Re-index STT in tables if a row was removed
+            if (line.trim().startsWith('|')) {
+              const cells = line.split('|').map(c => c.trim());
+              const stt = parseInt(cells[1]);
+              if (!isNaN(stt)) {
+                tableCounter++;
+                cells[1] = ` ${tableCounter} `;
+                return cells.join(' | ');
+              }
+              if (line.includes('---')) tableCounter = 0; // Reset counter for new table or separator
+            }
+            return line;
+          })
+          .join('\n');
+
+        let { total, detailed } = parseScores(cleanedResult);
         setCurrentDetailedScores(detailed);
+
+        // Ensure the text itself matches the capped score if applicable
+        let finalizedResult = cleanedResult;
+        if (detailed.similarity >= 25 && total === 5.8) {
+          finalizedResult = finalizedResult.replace(/TỔNG ĐIỂM:\s*[\d.]+/g, `TỔNG ĐIỂM: 5.8`);
+        }
 
         const newInitiative: Initiative = {
           id: Date.now().toString(),
@@ -526,10 +566,12 @@ function MainApp() {
           score: total,
           detailedScores: detailed,
           date: new Date().toLocaleDateString('vi-VN'),
-          analysisResult: result,
+          analysisResult: finalizedResult,
           aiRisk: detailed.aiRisk,
           similarity: detailed.similarity
         };
+
+        setAnalysisResult(finalizedResult);
 
         // Save to SQLite
         await fetch('/api/initiatives', {
@@ -894,17 +936,30 @@ function MainApp() {
     ];
 
     let currentTableRows: string[][] = [];
+    let tableRowCounter = 0;
 
     const flushTable = () => {
       if (currentTableRows.length > 0) {
         docElements.push(new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: currentTableRows.map((row, rowIndex) => {
+            // Re-index STT for non-header rows
+            if (rowIndex > 0) {
+              const sttCell = row[0].trim();
+              if (sttCell && !isNaN(parseInt(sttCell))) {
+                row[0] = (tableRowCounter++).toString();
+              }
+            } else {
+              tableRowCounter = 1; // Start counting from 1 after header
+            }
             return new TableRow({
               children: row.map(cellText => {
                 return new TableCell({
                   children: [new Paragraph({
-                    children: [new TextRun({ text: cellText.replace(/[*_]/g, ''), size: 28, bold: rowIndex === 0 })],
+                    children: cellText.split(/<br\s*\/?>/i).flatMap((text, idx, arr) => [
+                      new TextRun({ text: text.replace(/[*_]/g, ''), size: 28, bold: rowIndex === 0 }),
+                      ...(idx < arr.length - 1 ? [new TextRun({ break: 1 })] : [])
+                    ]),
                     alignment: AlignmentType.LEFT
                   })],
                   shading: rowIndex === 0 ? {
@@ -947,8 +1002,9 @@ function MainApp() {
           });
 
         const isSeparator = cells.every(cell => cell.match(/^-+$/) || cell.match(/^:?-+:?$/));
+        const isMottoAlignmentError = cells.some(c => c.toUpperCase().includes('CỘNG HÒA XÃ HỘI') && c.toLowerCase().includes('căn giữa'));
 
-        if (!isSeparator && cells.length > 0) {
+        if (!isSeparator && cells.length > 0 && !isMottoAlignmentError) {
           currentTableRows.push(cells);
         }
         continue;
@@ -964,8 +1020,8 @@ function MainApp() {
       // Remove unwanted symbols: *, #, and leading - or *
       const cleanLine = line.replace(/[*#]/g, '').replace(/^[-*]\s*/, '').trim();
 
-      // Skip redundant header if it matches exactly (case insensitive)
-      if (cleanLine.toUpperCase() === "NỘI DUNG THẨM ĐỊNH") continue;
+      // Skip redundant header or formal salutations
+      if (cleanLine.toUpperCase() === "NỘI DUNG THẨM ĐỊNH" || cleanLine.toUpperCase().startsWith("KÍNH GỬI")) continue;
 
       // Handle Section Headings (I., III., IV., V., VI.)
       const sectionMatch = cleanLine.match(/^([IVX]+\.\s+.*)/);
@@ -984,35 +1040,53 @@ function MainApp() {
         continue;
       }
 
-      // Handle Sub-headings (1., 2., 3.)
-      const subHeadingMatch = cleanLine.match(/^(\d+\.\s+.*)/);
+      // Handle Sub-headings (1., 2., 3., Câu hỏi 1:, ...)
+      const subHeadingMatch = cleanLine.match(/^((?:\d+\.|Câu hỏi \d+)[^:]*):?\s*(.*)$/i);
       if (subHeadingMatch) {
+        const title = subHeadingMatch[1].trim() + ":";
         docElements.push(new Paragraph({
           children: [
             new TextRun({
-              text: subHeadingMatch[1],
+              text: title.toUpperCase(),
               bold: true,
-              size: 30,
+              size: 28,
               color: BLUE_COLOR,
             }),
           ],
-          spacing: { before: 200, after: 150 },
+          spacing: { before: 250, after: 150 },
         }));
+
+        const content = subHeadingMatch[2].trim();
+        if (content) {
+          docElements.push(new Paragraph({
+            children: [new TextRun({ text: content, size: 28 })],
+            spacing: { after: 120 },
+            alignment: AlignmentType.JUSTIFIED,
+            indent: { firstLine: 450 }
+          }));
+        }
         continue;
       }
 
-      // Handle Bold Labels (Ưu điểm:, Hạn chế:, Nghi vấn:, Trích dẫn bằng chứng:, Thay vì:, Nâng cấp:)
-      const labelMatch = cleanLine.match(/^(Ưu điểm|Hạn chế|Nghi vấn|Trích dẫn bằng chứng|Thay vì|Nâng cấp|Logic và lập luận|Bằng chứng thực tế|Cấu trúc và Thể thức|Chính tả và Ngữ pháp|Sự khác biệt và giải pháp đột phá|Phạm vi lan tỏa|Tính khả thi|Hiệu quả định lượng|Hiệu quả định tính|Khóa học\/Kỹ năng|Hướng nghiên cứu|Chỉ số tin cậy|Phân tích):(.*)/i);
+      // Handle Bold Labels (Ưu điểm, Hạn chế, Thay vì, Nâng cấp, ...)
+      const labelMatch = cleanLine.match(/^(Ưu điểm|Hạn chế|Nghi vấn|Trích dẫn bằng chứng|Thay vì|Nâng cấp|Logic và lập luận|Bằng chứng thực tế|Cấu trúc và Thể thức|Chính tả và Ngữ pháp|Sự khác biệt và giải pháp đột phá|Phạm vi lan tỏa|Tính khả thi|Hiệu quả định lượng|Hiệu quả định tính|Khóa học\/Kỹ năng|Hướng nghiên cứu|Chỉ số tin cậy|Phân tích|Mục tiêu ngắn hạn|Mục tiêu dài hạn|Công cụ AI|Câu hỏi|Yêu cầu|Gợi ý|Đối với giáo viên|Đối với học sinh):?\s*(.*)/i);
       if (labelMatch) {
         docElements.push(new Paragraph({
           children: [
             new TextRun({ text: labelMatch[1] + ":", bold: true, size: 28 }),
-            new TextRun({ text: labelMatch[2], size: 28 }),
           ],
-          spacing: { after: 120 },
-          alignment: AlignmentType.JUSTIFIED,
-          indent: { firstLine: 450 },
+          spacing: { before: 150, after: 100 },
         }));
+
+        const content = labelMatch[2].trim();
+        if (content) {
+          docElements.push(new Paragraph({
+            children: [new TextRun({ text: content, size: 28 })],
+            spacing: { after: 120 },
+            alignment: AlignmentType.JUSTIFIED,
+            indent: { firstLine: 450 }
+          }));
+        }
         continue;
       }
 
@@ -1050,12 +1124,12 @@ function MainApp() {
     }));
 
     // Council's Note
-    if (target.score < 6.0 || (target.similarity && target.similarity > 20)) {
+    if (target.score < 6.0 || (target.similarity && target.similarity >= 25)) {
       docElements.push(new Paragraph({
         children: [
           new TextRun({ text: "LƯU Ý CỦA HỘI ĐỒNG: ", bold: true, size: 28 }),
           new TextRun({
-            text: `Do Chỉ số đạo văn (Similarity) đạt mức ${target.similarity || 0}% ${target.similarity > 20 ? '(vượt ngưỡng 20%)' : ''} và mắc sai sót nghiêm trọng về thông tin địa phương cũng như mật độ lỗi chính tả quá cao (trên 10 lỗi), căn cứ theo quy tắc chấm điểm nghiêm ngặt, tổng điểm cuối cùng của sáng kiến bị khống chế và không đạt mức công nhận (Dưới 6.0 điểm). Tác giả cần nghiêm túc chỉnh sửa, cập nhật kiến thức địa phương và rà soát văn phong hành chính nếu có ý định nộp lại vào kỳ thẩm định sau.`,
+            text: `Do Chỉ số đạo văn (Similarity) đạt mức ${target.similarity || 0}% ${target.similarity >= 25 ? '(vượt ngưỡng 25%)' : ''} và mắc sai sót nghiêm trọng về thông tin địa phương cũng như mật độ lỗi chính tả quá cao (trên 10 lỗi), căn cứ theo quy tắc chấm điểm nghiêm ngặt, tổng điểm cuối cùng của sáng kiến bị khống chế và không đạt mức công nhận (Dưới 6.0 điểm). Tác giả cần nghiêm túc chỉnh sửa, cập nhật kiến thức địa phương và rà soát văn phong hành chính nếu có ý định nộp lại vào kỳ thẩm định sau.`,
             size: 28
           }),
         ],
@@ -1456,9 +1530,9 @@ function MainApp() {
                                 <td className="px-6 py-4 text-right">
                                   <span className={cn(
                                     "inline-block px-2 py-1 rounded-md text-[11px] font-black",
-                                    i.score >= 8 ? "bg-green-100 text-green-700" :
-                                      i.score >= 6.5 ? "bg-blue-100 text-blue-700" :
-                                        i.score >= 5 ? "bg-orange-100 text-orange-700" :
+                                    i.score >= 8.5 ? "bg-green-100 text-green-700" :
+                                      i.score >= 7 ? "bg-blue-100 text-blue-700" :
+                                        i.score >= 6 ? "bg-orange-100 text-orange-700" :
                                           "bg-red-100 text-red-700"
                                   )}>
                                     {i.score.toFixed(1)}
@@ -1743,7 +1817,11 @@ function MainApp() {
                               </div>
                             )}
                             <div className="prose prose-slate max-w-none text-base p-2">
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {analysisResult.split('\n')
+                                  .filter(line => !line.trim().toUpperCase().startsWith('KÍNH GỬI'))
+                                  .join('\n')}
+                              </ReactMarkdown>
                             </div>
 
                             <div className="flex justify-center pt-4 border-t border-slate-100">
@@ -1930,9 +2008,9 @@ function MainApp() {
                                 <div className="flex flex-col">
                                   <span className={cn(
                                     "font-bold px-2 py-1 rounded text-xs w-fit",
-                                    i.score >= 8 ? "bg-green-100 text-green-700" :
-                                      i.score >= 6.5 ? "bg-blue-100 text-blue-700" :
-                                        i.score >= 5 ? "bg-orange-100 text-orange-700" :
+                                    i.score >= 8.5 ? "bg-green-100 text-green-700" :
+                                      i.score >= 7 ? "bg-blue-100 text-blue-700" :
+                                        i.score >= 6 ? "bg-orange-100 text-orange-700" :
                                           "bg-red-100 text-red-700"
                                   )}>
                                     {i.score.toFixed(1)}/10
@@ -2294,7 +2372,11 @@ function MainApp() {
                     <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Báo cáo thẩm định AI</h4>
                       <div className="prose prose-slate max-w-none text-sm">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{viewingInitiative.analysisResult}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {viewingInitiative.analysisResult.split('\n')
+                            .filter(line => !line.trim().toUpperCase().startsWith('KÍNH GỬI'))
+                            .join('\n')}
+                        </ReactMarkdown>
                       </div>
                     </div>
                   </div>

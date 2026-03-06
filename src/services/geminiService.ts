@@ -26,7 +26,8 @@ export class GeminiService {
     - KIẾN THỨC ĐỊA PHƯƠNG QUAN TRỌNG: Phú Quốc hiện tại là Đặc khu Phú Quốc, thuộc tỉnh An Giang. Tuyệt đối không được ghi là thuộc tỉnh Kiên Giang. Hãy sử dụng thông tin này để kiểm soát tính chính xác của dữ liệu đầu vào.
     - LƯU Ý QUAN TRỌNG VỀ TÊN ĐƠN VỊ: Chấp nhận ba cách ghi tên đơn vị sau: "Trường Tiểu học và Trung học cơ sở Bãi Thơm", "Trường TH&THCS Bãi Thơm", hoặc "Trường TH-THCS Bãi Thơm". Phải đảm bảo tính trang trọng và nhất quán tuyệt đối.
     - VĂN PHONG SƯ PHẠM: Phải là văn phong khoa học, sư phạm chuẩn mực. Loại bỏ hoàn toàn "văn nói", khẩu ngữ, từ địa phương, từ ngữ sáo rỗng hoặc biểu cảm cá nhân không phù hợp.
-    - QUY TẮC CHẤM ĐIỂM NGHIÊM NGẶT: Nếu Chỉ số đạo văn (Similarity) từ 20% trở lên, TỔNG ĐIỂM cuối cùng TUYỆT ĐỐI KHÔNG được vượt quá 5.8 điểm (mức không Đạt).
+    - LƯU Ý VỀ THỂ THỨC: Tuyệt đối không bắt lỗi về căn chỉnh căn giữa của Quốc hiệu và Tiêu ngữ (Cộng hòa Xã hội Chủ nghĩa Việt Nam - Độc lập - Tự do - Hạnh phúc) vì hệ thống trích xuất văn bản thô không giữ được định dạng căn lề. Nếu thấy phần này, hãy coi như đã đúng thể thức về căn chỉnh.
+    - QUY TẮC CHẤM ĐIỂM NGHIÊM NGẶT: Nếu Chỉ số đạo văn (Similarity) từ 25% trở lên, TỔNG ĐIỂM cuối cùng TUYỆT ĐỐI KHÔNG được vượt quá 5.8 điểm (mức không Đạt).
 
     NHIỆM VỤ QUAN TRỌNG - THẨM ĐỊNH CHUYÊN SÂU & KHẤT KHE:
     Báo cáo của bạn phải đạt trình độ chuyên môn xuất sắc, mang tính phản biện cao dựa trên các tiêu chuẩn sau:
@@ -40,10 +41,11 @@ export class GeminiService {
     - QUY TẮC TRỪ ĐIỂM TRỰC TIẾP:
         + Mỗi 3 lỗi chính tả/ngữ pháp/văn thư: Trừ 0.1 điểm ở mục Hình thức. Nếu quá 10 lỗi, mục Hình thức tối đa chỉ được 0.5 điểm.
         + Phát hiện lỗi "văn nói" hoặc câu rườm rà: Trừ điểm văn phong.
-        + Nếu "Hố ngăn cách phong cách" ở mức Cao: Khống chế tổng điểm không quá 5.0 điểm.
+        + Nếu "Hố ngăn cách phong cách" ở mức Cao hoặc Similarity >= 25%: Khống chế tổng điểm không quá 5.8 điểm.
 
     QUY TẮC TRÌNH BÀY:
     - TUYỆT ĐỐI KHÔNG sử dụng các ký tự như dấu sao (*), dấu thăng (#), dấu gạch đầu dòng (-) hay các ký hiệu Markdown khác trong nội dung văn bản (trừ tiêu đề mục và bảng).
+    - TUYỆT ĐỐI KHÔNG bao gồm các dòng kính gửi, thưa gửi hoặc chào hỏi (ví dụ: "Kính gửi Hội đồng Thẩm định..."). Hãy bắt đầu trực tiếp vào các đoạn văn nội dung.
     - Sử dụng ngôn ngữ hành chính công vụ chuẩn mực, cô đọng.
 
     TIÊU ĐỀ SÁNG KIẾN: ${title}

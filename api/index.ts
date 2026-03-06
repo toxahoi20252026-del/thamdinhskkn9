@@ -1,35 +1,81 @@
 import express from "express";
 import path from "path";
-import fs from "fs";
 import { fileURLToPath } from "url";
+import { sql } from "@vercel/postgres";
+import "dotenv/config";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ============================================================
-// In-Memory Store (Vercel-compatible replacement for SQLite)
-// Data persists only during function warm time.
-// ============================================================
-interface Store {
-  initiatives: any[];
-  users: any[];
-  grades: any[];
-  settings: { apiKey: string; model: string } | null;
-}
-
-const store: Store = {
-  initiatives: [],
-  users: [
-    { id: 'admin-1', username: 'admin', password: 'admin123', fullName: 'Quản trị viên', role: 'admin' },
-    { id: 'judge-1', username: 'giamkhao1', password: '123', fullName: 'Nguyễn Văn A', role: 'judge' },
-    { id: 'judge-2', username: 'giamkhao2', password: '123', fullName: 'Trần Thị B', role: 'judge' },
-  ],
-  grades: [],
-  settings: null,
-};
-
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: "10mb" }));
+
+// ============================================================
+// Database Initialization
+// ============================================================
+async function initDb() {
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        role TEXT NOT NULL
+      )
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS initiatives (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        author TEXT,
+        unit TEXT,
+        score DOUBLE PRECISION,
+        detailed_scores JSONB,
+        date TEXT,
+        analysis_result TEXT,
+        ai_risk TEXT,
+        similarity DOUBLE PRECISION
+      )
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS grades (
+        id TEXT PRIMARY KEY,
+        initiative_id TEXT NOT NULL,
+        user_id TEXT,
+        user_name TEXT,
+        score DOUBLE PRECISION,
+        criteria_scores JSONB,
+        comment TEXT,
+        date TEXT
+      )
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS settings (
+        id INT PRIMARY KEY,
+        api_key TEXT,
+        model TEXT
+      )
+    `;
+
+    // Default users
+    const { rows } = await sql`SELECT * FROM users LIMIT 1`;
+    if (rows.length === 0) {
+      await sql`INSERT INTO users (id, username, password, full_name, role) VALUES ('admin-1', 'admin', 'admin123', 'Quản trị viên', 'admin')`;
+      await sql`INSERT INTO users (id, username, password, full_name, role) VALUES ('judge-1', 'giamkhao1', '123', 'Nguyễn Văn A', 'judge')`;
+      await sql`INSERT INTO users (id, username, password, full_name, role) VALUES ('judge-2', 'giamkhao2', '123', 'Trần Thị B', 'judge')`;
+    }
+
+    // Default settings
+    const { rows: settingsRows } = await sql`SELECT * FROM settings WHERE id = 1`;
+    if (settingsRows.length === 0) {
+      await sql`INSERT INTO settings (id, api_key, model) VALUES (1, '', 'gemini-2.5-flash')`;
+    }
+  } catch (error) {
+    console.warn("DB not ready or env vars missing. Skipping init.");
+  }
+}
+initDb();
 
 // Health check
 app.get("/api/health", (_req, res) => {
@@ -37,46 +83,62 @@ app.get("/api/health", (_req, res) => {
 });
 
 // Auth API
-app.post("/api/login", (req, res) => {
+app.post("/api/login", async (req, res) => {
   const { username: rawUsername, password: rawPassword } = req.body;
-  const username = (rawUsername || '').trim();
-  const password = (rawPassword || '').trim();
+  const username = (rawUsername || "").trim();
+  const password = (rawPassword || "").trim();
 
-  const user = store.users.find(u => u.username === username && u.password === password);
-  if (user) {
-    const { password: _, ...safeUser } = user;
-    res.json(safeUser);
-  } else {
-    res.status(401).json({ error: "Sai tài khoản hoặc mật khẩu" });
+  try {
+    const { rows } = await sql`SELECT * FROM users WHERE username = ${username} AND password = ${password}`;
+    const user = rows[0];
+    if (user) {
+      const { password: _, ...safeUser } = user;
+      res.json({
+        id: safeUser.id,
+        username: safeUser.username,
+        fullName: safeUser.full_name,
+        role: safeUser.role,
+      });
+    } else {
+      res.status(401).json({ error: "Sai tài khoản hoặc mật khẩu" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: "DB Error" });
   }
 });
 
 // Users API
-app.get("/api/users", (_req, res) => {
-  const safeUsers = store.users.map(({ password: _, ...u }) => u);
-  res.json(safeUsers);
+app.get("/api/users", async (_req, res) => {
+  try {
+    const { rows } = await sql`SELECT id, username, full_name as "fullName", role FROM users`;
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: "DB Error" });
+  }
 });
 
-app.post("/api/users", (req, res) => {
+app.post("/api/users", async (req, res) => {
   try {
     const { id, username, password, fullName, role } = req.body;
-    const idx = store.users.findIndex(u => u.id === id);
-    if (idx !== -1) {
-      const finalPassword = (password && password.trim() !== "") ? password : store.users[idx].password;
-      store.users[idx] = { id, username, password: finalPassword, fullName, role };
+    const { rows } = await sql`SELECT * FROM users WHERE id = ${id}`;
+    if (rows.length > 0) {
+      if (password && password.trim() !== "") {
+        await sql`UPDATE users SET username = ${username}, password = ${password}, full_name = ${fullName}, role = ${role} WHERE id = ${id}`;
+      } else {
+        await sql`UPDATE users SET username = ${username}, full_name = ${fullName}, role = ${role} WHERE id = ${id}`;
+      }
     } else {
-      store.users.push({ id, username, password, fullName, role });
+      await sql`INSERT INTO users (id, username, password, full_name, role) VALUES (${id}, ${username}, ${password}, ${fullName}, ${role})`;
     }
     res.json({ success: true });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: "Failed to save user" });
   }
 });
 
-app.delete("/api/users/:id", (req, res) => {
+app.delete("/api/users/:id", async (req, res) => {
   try {
-    store.users = store.users.filter(u => u.id !== req.params.id);
+    await sql`DELETE FROM users WHERE id = ${req.params.id}`;
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete user" });
@@ -84,27 +146,67 @@ app.delete("/api/users/:id", (req, res) => {
 });
 
 // Initiatives API
-app.get("/api/initiatives", (_req, res) => {
+app.get("/api/initiatives", async (_req, res) => {
   try {
-    const initiatives = store.initiatives.map(init => {
-      const grades = store.grades.filter(g => g.initiativeId === init.id);
-      return { ...init, grades };
+    const { rows: initiatives } = await sql`SELECT * FROM initiatives ORDER BY date DESC`;
+    const { rows: allGrades } = await sql`SELECT * FROM grades`;
+
+    const result = initiatives.map((init) => {
+      const grades = allGrades
+        .filter((g) => g.initiative_id === init.id)
+        .map((g) => ({
+          id: g.id,
+          initiativeId: g.initiative_id,
+          userId: g.user_id,
+          userName: g.user_name,
+          score: g.score,
+          criteriaScores: g.criteria_scores,
+          comment: g.comment,
+          date: g.date,
+        }));
+      return {
+        id: init.id,
+        title: init.title,
+        author: init.author,
+        unit: init.unit,
+        score: init.score,
+        detailedScores: init.detailed_scores,
+        date: init.date,
+        analysisResult: init.analysis_result,
+        aiRisk: init.ai_risk,
+        similarity: init.similarity,
+        grades,
+      };
     });
-    res.json(initiatives);
+    res.json(result);
   } catch (error) {
-    console.error("Failed to fetch initiatives:", error);
-    res.status(500).json({ error: "Failed to fetch initiatives" });
+    res.status(500).json({ error: "DB Error" });
   }
 });
 
-app.post("/api/initiatives", (req, res) => {
+app.post("/api/initiatives", async (req, res) => {
   try {
-    const initiative = req.body;
-    const idx = store.initiatives.findIndex(i => i.id === initiative.id);
-    if (idx !== -1) {
-      store.initiatives[idx] = initiative;
+    const init = req.body;
+    const { rows } = await sql`SELECT id FROM initiatives WHERE id = ${init.id}`;
+    if (rows.length > 0) {
+      await sql`
+        UPDATE initiatives SET 
+          title = ${init.title}, 
+          author = ${init.author}, 
+          unit = ${init.unit}, 
+          score = ${init.score}, 
+          detailed_scores = ${JSON.stringify(init.detailedScores)}, 
+          date = ${init.date}, 
+          analysis_result = ${init.analysisResult}, 
+          ai_risk = ${init.aiRisk}, 
+          similarity = ${init.similarity}
+        WHERE id = ${init.id}
+      `;
     } else {
-      store.initiatives.unshift(initiative);
+      await sql`
+        INSERT INTO initiatives (id, title, author, unit, score, detailed_scores, date, analysis_result, ai_risk, similarity)
+        VALUES (${init.id}, ${init.title}, ${init.author}, ${init.unit}, ${init.score}, ${JSON.stringify(init.detailedScores)}, ${init.date}, ${init.analysisResult}, ${init.aiRisk}, ${init.similarity})
+      `;
     }
     res.json({ success: true });
   } catch (error) {
@@ -113,10 +215,10 @@ app.post("/api/initiatives", (req, res) => {
   }
 });
 
-app.delete("/api/initiatives/:id", (req, res) => {
+app.delete("/api/initiatives/:id", async (req, res) => {
   try {
-    store.initiatives = store.initiatives.filter(i => i.id !== req.params.id);
-    store.grades = store.grades.filter(g => g.initiativeId !== req.params.id);
+    await sql`DELETE FROM initiatives WHERE id = ${req.params.id}`;
+    await sql`DELETE FROM grades WHERE initiative_id = ${req.params.id}`;
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete initiative" });
@@ -124,46 +226,61 @@ app.delete("/api/initiatives/:id", (req, res) => {
 });
 
 // Grades API
-app.post("/api/grades", (req, res) => {
+app.post("/api/grades", async (req, res) => {
   try {
     const grade = req.body;
-    const idx = store.grades.findIndex(g => g.id === grade.id);
-    if (idx !== -1) {
-      store.grades[idx] = grade;
+    const { rows } = await sql`SELECT id FROM grades WHERE id = ${grade.id}`;
+    if (rows.length > 0) {
+      await sql`
+        UPDATE grades SET 
+          initiative_id = ${grade.initiativeId}, 
+          user_id = ${grade.userId}, 
+          user_name = ${grade.userName}, 
+          score = ${grade.score}, 
+          criteria_scores = ${JSON.stringify(grade.criteriaScores)}, 
+          comment = ${grade.comment}, 
+          date = ${grade.date}
+        WHERE id = ${grade.id}
+      `;
     } else {
-      store.grades.push(grade);
+      await sql`
+        INSERT INTO grades (id, initiative_id, user_id, user_name, score, criteria_scores, comment, date)
+        VALUES (${grade.id}, ${grade.initiativeId}, ${grade.userId}, ${grade.userName}, ${grade.score}, ${JSON.stringify(grade.criteriaScores)}, ${grade.comment}, ${grade.date})
+      `;
     }
 
     // Recalculate initiative average score
-    const allGrades = store.grades.filter(g => g.initiativeId === grade.initiativeId);
-    if (allGrades.length > 0) {
-      const avg = allGrades.reduce((acc, curr) => acc + curr.score, 0) / allGrades.length;
-      const initIdx = store.initiatives.findIndex(i => i.id === grade.initiativeId);
-      if (initIdx !== -1) {
-        store.initiatives[initIdx].score = avg;
-      }
+    const { rows: initiativeGrades } = await sql`SELECT score FROM grades WHERE initiative_id = ${grade.initiativeId}`;
+    if (initiativeGrades.length > 0) {
+      const avg = initiativeGrades.reduce((acc, curr) => acc + curr.score, 0) / initiativeGrades.length;
+      await sql`UPDATE initiatives SET score = ${avg} WHERE id = ${grade.initiativeId}`;
     }
 
     res.json({ success: true });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Failed to save grade" });
   }
 });
 
 // Settings API
-app.get("/api/settings", (_req, res) => {
+app.get("/api/settings", async (_req, res) => {
   try {
-    res.json(store.settings || { apiKey: "", model: "gemini-2.5-flash" });
+    const { rows } = await sql`SELECT api_key as "apiKey", model FROM settings WHERE id = 1`;
+    if (rows.length > 0) {
+      res.json(rows[0]);
+    } else {
+      res.json({ apiKey: "", model: "gemini-2.5-flash" });
+    }
   } catch (error) {
-    console.error("Failed to fetch settings:", error);
-    res.status(500).json({ error: "Failed to fetch settings" });
+    res.status(500).json({ error: "DB Error" });
   }
 });
 
-app.post("/api/settings", (req, res) => {
+app.post("/api/settings", async (req, res) => {
   try {
     const { apiKey, model } = req.body;
-    store.settings = { apiKey, model };
+    await sql`UPDATE settings SET api_key = ${apiKey}, model = ${model} WHERE id = 1`;
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "Failed to save settings" });
