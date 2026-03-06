@@ -315,8 +315,7 @@ function MainApp() {
         alert(err.error || "Lỗi khi lưu người dùng");
       }
     } catch (error) {
-      console.error(error);
-      alert("Lỗi kết nối máy chủ");
+      alert("Lỗi khi lưu người dùng");
     } finally {
       setIsSavingUser(false);
     }
