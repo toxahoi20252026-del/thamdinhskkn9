@@ -136,7 +136,7 @@ function MainApp() {
   });
   const [settings, setSettings] = useState<AppSettings>({
     apiKey: getEnvKey(),
-    model: 'gemini-2.5-flash'
+    model: 'gemini-2.0-flash'
   });
 
   // Analysis state
@@ -236,7 +236,7 @@ function MainApp() {
             const envKey = getEnvKey();
             setSettings({
               apiKey: (savedSettings && savedSettings.apiKey) || envKey,
-              model: (savedSettings && savedSettings.model) || 'gemini-1.5-flash'
+              model: (savedSettings && savedSettings.model) || 'gemini-2.0-flash'
             });
           } catch (e) {
             console.error("Error parsing settings:", e);
@@ -523,10 +523,10 @@ function MainApp() {
     try {
       const apiKey = settings.apiKey || envKey;
 
-      // Get existing initiative titles for internal reference
-      const existingTitles = initiatives.map(i => i.title).join(', ');
+      // Get existing initiative titles for internal reference (Limit to last 15 to improve speed)
+      const existingTitles = initiatives.slice(0, 15).map(i => i.title).join(', ');
       const referenceContext = initiatives.length > 0
-        ? `\nTHƯ VIỆN ĐỐI CHIẾU NỘI BỘ: Các sáng kiến đã có trong hệ thống: ${existingTitles}. Hãy kiểm tra xem sáng kiến hiện tại có trùng lặp hoặc kế thừa tốt từ các sáng kiến này không.`
+        ? `\nTHƯ VIỆN ĐỐI CHIẾU NỘI BỘ (15 sáng kiến gần nhất): ${existingTitles}. Kiểm tra tính trùng lặp.`
         : "";
 
       const result = await analyzeInitiative(apiKey, effectiveTitle, skContent + referenceContext, skAuthor || 'Chưa rõ', skUnit || 'Trường TH&THCS Bãi Thơm', settings.model);
@@ -2236,11 +2236,11 @@ function MainApp() {
                         defaultValue={settings.model}
                         className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary transition bg-white"
                       >
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Mặc định mới)</option>
-                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Nâng cao)</option>
-                        <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
-                        <option value="gemini-3-flash-preview">Gemini 3 Flash (Thử nghiệm)</option>
-                        <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (Thế hệ mới - Nhanh nhất)</option>
+                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Thông minh nhất)</option>
+                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Cân bằng & Ổn định)</option>
+                        <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.0 Flash-Lite (Tiết kiệm)</option>
+                        <option value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro Experimental</option>
                       </select>
                     </div>
                     <button

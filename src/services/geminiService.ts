@@ -125,17 +125,10 @@ export class GeminiService {
     4. Phân biệt Kế thừa và Đạo văn: (Nhận xét công tâm)
     5. Chỉ số đạo văn (Similarity): [X]% (Ước tính)
 
-    IV. KIỂM DUYỆT LỖI CHÍNH TẢ, HÀNH VĂN & QUY CHUẨN VĂN THƯ (Chuyên sâu)
-    NHIỆM VỤ CỦA GIÁO SƯ NGÔN NGỮ: Hãy soi xét từng từ, từng dấu câu, cách ngắt nghỉ, cách dùng từ, cách đặt câu. Hãy tìm dưới 100 lỗi và tập trung đặc biệt vào các lỗi chính tả (thiếu dấu, sai dấu thanh, phụ âm đầu/vần, lỗi viết chuẩn/nhất quán...):
-    1. Lỗi chính tả, đánh máy, dấu câu (Theo quy định Bộ GD&ĐT).
-    2. Lỗi thể thức văn bản (Theo Nghị định 30/2020/NĐ-CP): Viết hoa, trình bày đề mục, căn lề.
-    3. Lỗi văn phong: Sử dụng "văn nói", từ ngữ thiếu tính sư phạm, lặp từ, rườm rà.
-    4. Lỗi logic câu: Câu què, câu cụt, mâu thuẫn ngữ nghĩa.
+    IV. KIỂM DUYỆT LỖI CHÍNH TẢ, HÀNH VĂN & QUY CHUẨN VĂN THƯ (Trọng tâm)
+    NHIỆM VỤ: Hãy tập trung tìm tối đa 30 lỗi quan trọng nhất (chính tả, dấu câu, i/y, ch/tr, nền nếp) và lỗi thể thức Nghị định 30:
     
-    Chỉ số chuyên nghiệp (Professionalism Index): [X]/100
-    
-    Trình bày dưới dạng bảng Markdown chuẩn (có đầy đủ đường kẻ | ở đầu và cuối dòng):
-    | STT | Lỗi sai (Trích dẫn chính xác) | Vị trí sai | Loại lỗi / Căn cứ quy chuẩn | Cách sửa tối ưu (Văn phong sư phạm) |
+    | STT | Lỗi sai (Trích dẫn) | Vị trí | Loại lỗi / Căn cứ | Cách sửa tối ưu |
     |---|---|---|---|---|
     | 1 | ... | (Phần nào, trang mấy, dòng mấy) | ... | ... |
 
@@ -181,7 +174,7 @@ export class GeminiService {
     const analyzeWithRetry = async (retryCount = 0): Promise<string> => {
       try {
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout: AI không phản hồi sau 180 giây. Vui lòng thử lại.")), 180000)
+          setTimeout(() => reject(new Error("Timeout: AI phản hồi quá chậm (180 giây). Vui lòng kiểm tra lại nội dung hoặc thử lại lần nữa.")), 180000)
         );
 
         const analysisPromise = (async () => {
@@ -204,7 +197,8 @@ export class GeminiService {
         const isRetryable = error?.message?.includes("503") ||
           error?.message?.includes("429") ||
           error?.message?.includes("UNAVAILABLE") ||
-          error?.message?.includes("RESOURCE_EXHAUSTED");
+          error?.message?.includes("RESOURCE_EXHAUSTED") ||
+          error?.message?.includes("Timeout");
 
         if (isRetryable && retryCount < 3) {
           const delay = Math.pow(2, retryCount) * 2000; // Exponential backoff: 2s, 4s, 8s
