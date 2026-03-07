@@ -489,9 +489,9 @@ function MainApp() {
 
     let total = getVal(/TỔNG ĐIỂM:\s*([\d.]+)/);
 
-    // Enforce logic rule: If similarity >= 25%, score cannot exceed 5.8.
-    if (detailed.similarity >= 25 && total > 5.8) {
-      total = 5.8;
+    // Enforce logic rule: If similarity >= 25%, score cannot exceed 5.9.
+    if (detailed.similarity >= 25 && total > 5.9) {
+      total = 5.9;
     }
 
     return { total, detailed };
@@ -537,6 +537,8 @@ function MainApp() {
         const cleanedResult = result.split('\n')
           .filter(line => {
             const trimmed = line.trim();
+            // Preserve the specific formal salutation for Phu Quoc
+            if (trimmed.includes("Hội đồng chấm sáng kiến Đặc khu Phú Quốc")) return true;
             if (trimmed.toUpperCase().startsWith('KÍNH GỬI')) return false;
 
             // Check for Motto alignment error (CỘNG HÒA XÃ HỘI + căn giữa)
@@ -566,8 +568,9 @@ function MainApp() {
 
         // Ensure the text itself matches the capped score if applicable
         let finalizedResult = cleanedResult;
-        if (detailed.similarity >= 25 && total === 5.8) {
-          finalizedResult = finalizedResult.replace(/TỔNG ĐIỂM:\s*[\d.]+/g, `TỔNG ĐIỂM: 5.8`);
+        const currentTextScore = parseScores(cleanedResult).total;
+        if (total !== currentTextScore) {
+          finalizedResult = finalizedResult.replace(/TỔNG ĐIỂM:\s*[\d.]+/g, `TỔNG ĐIỂM: ${total}`);
         }
 
         const newInitiative: Initiative = {
@@ -879,7 +882,7 @@ function MainApp() {
       author: skAuthor,
       unit: skUnit,
       analysisResult: analysisResult,
-      score: currentDetailedScores ? (currentDetailedScores.format + currentDetailedScores.scientific + currentDetailedScores.novelty + currentDetailedScores.applicability + currentDetailedScores.efficiency) : 0,
+      score: parseScores(analysisResult || "").total,
       similarity: currentDetailedScores?.similarity || 0,
       grades: []
     };
@@ -1048,8 +1051,12 @@ function MainApp() {
       // Remove unwanted symbols: *, #, and leading - or *
       const cleanLine = line.replace(/[*#]/g, '').replace(/^[-*]\s*/, '').trim();
 
-      // Skip redundant header or formal salutations
-      if (cleanLine.toUpperCase() === "NỘI DUNG THẨM ĐỊNH" || cleanLine.toUpperCase().startsWith("KÍNH GỬI")) continue;
+      // Skip redundant header or formal salutations (but keep the one for Phu Quoc)
+      if (cleanLine.includes("Hội đồng chấm sáng kiến Đặc khu Phú Quốc")) {
+        // Keep it
+      } else if (cleanLine.toUpperCase() === "NỘI DUNG THẨM ĐỊNH" || cleanLine.toUpperCase().startsWith("KÍNH GỬI")) {
+        continue;
+      }
 
       // Handle Section Headings (I., III., IV., V., VI.)
       const sectionMatch = cleanLine.match(/^([IVX]+\.\s+.*)/);
@@ -1161,7 +1168,7 @@ function MainApp() {
         children: [
           new TextRun({ text: "LƯU Ý CỦA HỘI ĐỒNG: ", bold: true, size: 28 }),
           new TextRun({
-            text: `Do Chỉ số đạo văn (Similarity) đạt mức ${target.similarity || 0}% ${target.similarity >= 25 ? '(vượt ngưỡng 25%)' : ''} và mắc sai sót nghiêm trọng về thông tin địa phương cũng như mật độ lỗi chính tả quá cao (trên 10 lỗi), căn cứ theo quy tắc chấm điểm nghiêm ngặt, tổng điểm cuối cùng của sáng kiến bị khống chế và không đạt mức công nhận (Dưới 6.0 điểm). Tác giả cần nghiêm túc chỉnh sửa, cập nhật kiến thức địa phương và rà soát văn phong hành chính nếu có ý định nộp lại vào kỳ thẩm định sau.`,
+            text: `Do Chỉ số đạo văn (Similarity) đạt mức ${target.similarity || 0}% ${target.similarity >= 25 ? '(vượt ngưỡng 25%)' : ''} và mắc sai sót về tính nguyên bản hoặc văn phong, căn cứ theo quy tắc chấm điểm nghiêm ngặt, tổng điểm cuối cùng của sáng kiến bị khống chế ở mức không đạt (Dưới 6.0 điểm). Tác giả cần nghiêm túc rà soát và chỉnh sửa nội dung trước khi nộp lại.`,
             size: 28
           }),
         ],

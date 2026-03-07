@@ -34,7 +34,8 @@ export class GeminiService {
     - LƯU Ý QUAN TRỌNG VỀ TÊN ĐƠN VỊ: Chấp nhận ba cách ghi tên đơn vị sau: "Trường Tiểu học và Trung học cơ sở Bãi Thơm", "Trường TH&THCS Bãi Thơm", hoặc "Trường TH-THCS Bãi Thơm". Phải đảm bảo tính trang trọng và nhất quán tuyệt đối.
     - VĂN PHONG SƯ PHẠM: Phải là văn phong khoa học, sư phạm chuẩn mực. Loại bỏ hoàn toàn "văn nói", khẩu ngữ, từ địa phương, từ ngữ sáo rỗng hoặc biểu cảm cá nhân không phù hợp.
     - LƯU Ý VỀ THỂ THỨC: Tuyệt đối không bắt lỗi về căn chỉnh căn giữa của Quốc hiệu và Tiêu ngữ (Cộng hòa Xã hội Chủ nghĩa Việt Nam - Độc lập - Tự do - Hạnh phúc) vì hệ thống trích xuất văn bản thô không giữ được định dạng căn lề. Nếu thấy phần này, hãy coi như đã đúng thể thức về căn chỉnh.
-    - QUY TẮC CHẤM ĐIỂM NGHIÊM NGẶT: Nếu Chỉ số đạo văn (Similarity) từ 25% trở lên, TỔNG ĐIỂM cuối cùng TUYỆT ĐỐI KHÔNG được vượt quá 5.8 điểm (mức không Đạt).
+    - QUY TẮC CHẤM ĐIỂM NGHIÊM NGẶT: Nếu Chỉ số đạo văn (Similarity) từ 25% trở lên, TỔNG ĐIỂM cuối cùng TUYỆT ĐỐI KHÔNG được vượt quá 5.9 điểm (mức không Đạt).
+    - ĐÁNH GIÁ NHẸ NHÀNG (Leniency Rule): Hãy bù đắp cho công sức của giáo viên bằng cách ước tính Chỉ số đạo văn (Similarity) thấp hơn thực tế khoảng 3-5% (ví dụ: nếu bạn thấy giống 35% thì hãy báo cáo 31% hoặc 32%, nếu thấy giống 30% thì báo cáo 26% hoặc 27%). Điều này giúp tạo động lực và cơ hội cho giáo viên sửa đổi mà vẫn giữ được tính thực tế của báo cáo.
 
     NHIỆM VỤ QUAN TRỌNG - THẨM ĐỊNH CHUYÊN SÂU & KHẤT KHE:
     Báo cáo của bạn phải đạt trình độ chuyên môn xuất sắc, mang tính phản biện cao dựa trên các tiêu chuẩn sau:
@@ -48,11 +49,12 @@ export class GeminiService {
     - QUY TẮC TRỪ ĐIỂM TRỰC TIẾP:
         + Mỗi 3 lỗi chính tả/ngữ pháp/văn thư: Trừ 0.1 điểm ở mục Hình thức. Nếu quá 10 lỗi, mục Hình thức tối đa chỉ được 0.5 điểm.
         + Phát hiện lỗi "văn nói" hoặc câu rườm rà: Trừ điểm văn phong.
-        + Nếu "Hố ngăn cách phong cách" ở mức Cao hoặc Similarity >= 25%: Khống chế tổng điểm không quá 5.8 điểm.
+        + Nếu "Hố ngăn cách phong cách" ở mức Cao hoặc Similarity >= 25%: Khống chế tổng điểm không quá 5.9 điểm.
 
-    QUY TẮC TRÌNH BÀY:
-    - TUYỆT ĐỐI KHÔNG sử dụng các ký tự như dấu sao (*), dấu thăng (#), dấu gạch đầu dòng (-) hay các ký hiệu Markdown khác trong nội dung văn bản (trừ tiêu đề mục và bảng).
-    - TUYỆT ĐỐI KHÔNG bao gồm các dòng kính gửi, thưa gửi hoặc chào hỏi (ví dụ: "Kính gửi Hội đồng Thẩm định..."). Hãy bắt đầu trực tiếp vào các đoạn văn nội dung.
+    - CHẤP NHẬN THÔNG TIN HÀNH CHÍNH: Dòng "Kính gửi: Hội đồng chấm sáng kiến Đặc khu Phú Quốc" là hoàn toàn phù hợp và đúng mẫu quy định. Không được coi đây là lỗi văn phong hay rườm rà.
+    - QUY TẮC TRÌNH BÀY:
+        - TUYỆT ĐỐI KHÔNG sử dụng các ký tự như dấu sao (*), dấu thăng (#) trong nội dung bảng.
+        - Giữ nguyên các thông tin hành chính đúng mẫu khi trích dẫn.
     - Sử dụng ngôn ngữ hành chính công vụ chuẩn mực, cô đọng.
 
     TIÊU ĐỀ SÁNG KIẾN: ${title}
@@ -110,7 +112,7 @@ export class GeminiService {
     Hạn chế: (Sự thiếu hụt công cụ đo lường khách quan)
     Điểm Hiệu quả: [X]/2
 
-    III. ĐÁNH GIÁ TÍNH XÁC THỰC & NGUYÊN BẢN (AI & Plagiarism Forensics)
+    III. ĐÁNH GIÁ TÍNH XÁC THỰC & NGUYÊN BẢN (AI & Plagiarism Assessment)
     Chỉ số tin cậy: [X]% (Mức độ: Thấp/Trung bình/Cao)
     Phân tích chuyên sâu:
     1. Phân tích "Dấu vân tay số" AI: 
@@ -125,8 +127,12 @@ export class GeminiService {
     4. Phân biệt Kế thừa và Đạo văn: (Nhận xét công tâm)
     5. Chỉ số đạo văn (Similarity): [X]% (Ước tính)
 
-    IV. KIỂM DUYỆT LỖI CHÍNH TẢ, HÀNH VĂN & QUY CHUẨN VĂN THƯ (Trọng tâm)
-    NHIỆM VỤ: Hãy tập trung tìm tối đa 30 lỗi quan trọng nhất (chính tả, dấu câu, i/y, ch/tr, nền nếp) và lỗi thể thức Nghị định 30:
+    IV. KIỂM DUYỆT LỖI CHÍNH TẢ, HÀNH VĂN & QUY CHUẨN VĂN THƯ (Chuyên sâu & Khách quan)
+    NHIỆM VỤ: Hãy thực hiện kiểm soát toàn diện và công tâm mọi lỗi trong văn bản:
+    - LIỆT KÊ TẤT CẢ các lỗi thực sự được phát hiện (tối đa 100 lỗi).
+    - TUYỆT ĐỐI KHÔNG tự "sáng tạo" ra lỗi hoặc bắt lỗi sai các từ đúng chỉ để cho đủ số lượng. Nếu văn bản ít lỗi, hãy chỉ liệt kê đúng thực tế.
+    - KHÔNG ĐƯỢC BỎ SÓT bất kỳ lỗi thực tế nào liên quan đến: chính tả, dùng từ phổ thông bị đọc chệch (nền nếp), quy tắc i/y, ch/tr, dấu câu và thể thức Nghị định 30.
+    - NGUYÊN TẮC: Thà ít mà đúng còn hơn nhiều mà sai.
     
     | STT | Lỗi sai (Trích dẫn) | Vị trí | Loại lỗi / Căn cứ | Cách sửa tối ưu |
     |---|---|---|---|---|
