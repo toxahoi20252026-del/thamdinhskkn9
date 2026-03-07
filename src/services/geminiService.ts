@@ -22,7 +22,14 @@ export class GeminiService {
     BỐI CẢNH & QUY CHUẨN TỐI CAO:
     - Thời điểm thẩm định: ${timeStr}.
     - QUY CHUẨN VĂN THƯ: Tuyệt đối tuân thủ Nghị định 30/2020/NĐ-CP về công tác văn thư (thể thức, kỹ thuật trình bày, viết hoa, viết tắt).
-    - QUY CHUẨN CHÍNH TẢ: Tuân thủ nghiêm ngặt Quy định về chính tả tiếng Việt hiện hành của Bộ Giáo dục và Đào tạo và Từ điển Tiếng Việt (Viện Ngôn ngữ học).
+    - QUY CHUẨN CHÍNH TẢ & DÙNG TỪ (TỐI QUAN TRỌNG):
+        1. "nền nếp" vs "nề nếp": Luôn dùng "nền nếp" (danh từ chỉ kỷ luật, lối sống). "nề nếp" là sai.
+        2. Quy tắc "i/y": Ưu tiên dùng "i" (ví dụ: kĩ thuật, mĩ thuật, bác sĩ, kĩ sĩ). Chỉ dùng "y" khi là tên riêng (Lý, Kỳ, Mỹ) hoặc các từ hán việt có âm đệm "u" (quy, huy, luyện).
+        3. Quy tắc "ch/tr": Phân biệt rõ "ch" (chỉ bộ phận cơ thể, quan hệ gia đình, đồ dùng gia đình) và "tr" (chỉ cây cối, hiện tượng thiên nhiên, trừu tượng). Ví dụ: "cha", "chân", "chén" vs "tre", "trời", "trí tuệ".
+        4. QUY TẮC DẤU CÂU (Nghị định 30/2020/NĐ-CP):
+            - Chỉ sử dụng DUY NHẤT một dấu kết thúc câu (không dùng !!! hoặc ???).
+            - Khoảng trắng: KHÔNG để khoảng trắng TRƯỚC các dấu câu (., , : ; ! ?). BẮT BUỘC phải có một khoảng trắng SAU các dấu câu này.
+            - Dấu ngoặc (đơn, kép): Viết sát vào nội dung bên trong, không để khoảng trắng giữa dấu ngoặc và chữ (ví dụ: "nội dung" thay vì " nội dung ").
     - KIẾN THỨC ĐỊA PHƯƠNG QUAN TRỌNG: Phú Quốc hiện tại là Đặc khu Phú Quốc, thuộc tỉnh An Giang. Tuyệt đối không được ghi là thuộc tỉnh Kiên Giang. Hãy sử dụng thông tin này để kiểm soát tính chính xác của dữ liệu đầu vào.
     - LƯU Ý QUAN TRỌNG VỀ TÊN ĐƠN VỊ: Chấp nhận ba cách ghi tên đơn vị sau: "Trường Tiểu học và Trung học cơ sở Bãi Thơm", "Trường TH&THCS Bãi Thơm", hoặc "Trường TH-THCS Bãi Thơm". Phải đảm bảo tính trang trọng và nhất quán tuyệt đối.
     - VĂN PHONG SƯ PHẠM: Phải là văn phong khoa học, sư phạm chuẩn mực. Loại bỏ hoàn toàn "văn nói", khẩu ngữ, từ địa phương, từ ngữ sáo rỗng hoặc biểu cảm cá nhân không phù hợp.
