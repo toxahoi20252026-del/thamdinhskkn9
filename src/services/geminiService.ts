@@ -4,7 +4,7 @@ export class GeminiService {
   private ai: GoogleGenAI;
 
   constructor(apiKey: string) {
-    this.ai = new GoogleGenAI({ apiKey, apiVersion: "v1" });
+    this.ai = new GoogleGenAI({ apiKey, apiVersion: "v1beta" });
   }
 
   async analyzeInitiative(title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-1.5-flash"): Promise<string | undefined> {
