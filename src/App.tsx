@@ -901,6 +901,7 @@ function MainApp() {
       unit: skUnit,
       analysisResult: analysisResult,
       score: parseScores(analysisResult || "").total,
+      detailedScores: currentDetailedScores,
       similarity: currentDetailedScores?.similarity || 0,
       grades: []
     };
@@ -908,6 +909,29 @@ function MainApp() {
     if (!target.analysisResult) return;
 
     const lines = target.analysisResult.split('\n');
+    const currentYear = new Date().getFullYear();
+    const BLUE_COLOR = "2E75B5";
+
+    // Helper: Parse markdown **bold** text into proper bold TextRuns
+    const parseBoldText = (text: string, baseBold = false, baseSize = 28): any[] => {
+      const cleaned = text.replace(/#/g, '');
+      const segments = cleaned.split(/(\*\*.*?\*\*)/g);
+      const runs: any[] = [];
+      for (const seg of segments) {
+        if (seg.startsWith('**') && seg.endsWith('**')) {
+          const inner = seg.slice(2, -2);
+          if (inner) runs.push(new TextRun({ text: inner, bold: true, size: baseSize }));
+        } else {
+          const plain = seg.replace(/\*/g, '');
+          if (plain) runs.push(new TextRun({ text: plain, bold: baseBold, size: baseSize }));
+        }
+      }
+      if (runs.length === 0) {
+        runs.push(new TextRun({ text: text.replace(/[*#]/g, ''), bold: baseBold, size: baseSize }));
+      }
+      return runs;
+    };
+
     const docElements: any[] = [
       // Main Title
       new Paragraph({
@@ -916,7 +940,7 @@ function MainApp() {
             text: "BÁO CÁO THẨM ĐỊNH SÁNG KIẾN KINH NGHIỆM",
             bold: true,
             size: 32,
-            color: "2E75B5",
+            color: BLUE_COLOR,
           }),
         ],
         alignment: AlignmentType.CENTER,
@@ -927,7 +951,7 @@ function MainApp() {
       new Paragraph({
         children: [
           new TextRun({ text: "Tên sáng kiến: ", bold: true, size: 30 }),
-          new TextRun({ text: `“${target.title}”`, size: 30, bold: true }),
+          new TextRun({ text: `"${target.title}"`, size: 30, bold: true }),
         ],
         spacing: { after: 120 },
       }),
@@ -960,7 +984,7 @@ function MainApp() {
             text: "NỘI DUNG THẨM ĐỊNH",
             bold: true,
             size: 28,
-            color: "2E75B5",
+            color: BLUE_COLOR,
           }),
         ],
         alignment: AlignmentType.CENTER,
@@ -970,36 +994,39 @@ function MainApp() {
 
     let currentTableRows: string[][] = [];
     let tableRowCounter = 0;
+    let insideScoresBlock = false;
 
     const flushTable = () => {
       if (currentTableRows.length > 0) {
         docElements.push(new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: currentTableRows.map((row, rowIndex) => {
-            // Re-index STT for non-header rows
             if (rowIndex > 0) {
               const sttCell = row[0].trim();
               if (sttCell && !isNaN(parseInt(sttCell))) {
                 row[0] = (tableRowCounter++).toString();
               }
             } else {
-              tableRowCounter = 1; // Start counting from 1 after header
+              tableRowCounter = 1;
             }
             return new TableRow({
               children: row.map((cellText, colIndex) => {
-                // Determine column width percentage
-                let colWidth = 20; // Default
+                let colWidth = 20;
                 if (row.length === 5) {
-                  if (colIndex === 0) colWidth = 5; // STT
-                  if (colIndex === 1) colWidth = 25; // Lỗi sai
-                  if (colIndex === 2) colWidth = 20; // Vị trí sai
-                  if (colIndex === 3) colWidth = 25; // Loại lỗi
-                  if (colIndex === 4) colWidth = 25; // Cách sửa
+                  if (colIndex === 0) colWidth = 5;
+                  if (colIndex === 1) colWidth = 25;
+                  if (colIndex === 2) colWidth = 20;
+                  if (colIndex === 3) colWidth = 25;
+                  if (colIndex === 4) colWidth = 25;
                 } else if (row.length === 4) {
-                  if (colIndex === 0) colWidth = 8; // STT
-                  if (colIndex === 1) colWidth = 30; // Lỗi sai
-                  if (colIndex === 2) colWidth = 30; // Loại lỗi
-                  if (colIndex === 3) colWidth = 30; // Cách sửa
+                  if (colIndex === 0) colWidth = 8;
+                  if (colIndex === 1) colWidth = 30;
+                  if (colIndex === 2) colWidth = 30;
+                  if (colIndex === 3) colWidth = 30;
+                } else if (row.length === 3) {
+                  if (colIndex === 0) colWidth = 40;
+                  if (colIndex === 1) colWidth = 30;
+                  if (colIndex === 2) colWidth = 30;
                 }
 
                 return new TableCell({
@@ -1012,7 +1039,7 @@ function MainApp() {
                     alignment: AlignmentType.LEFT
                   })],
                   shading: rowIndex === 0 ? {
-                    fill: "F1F5F9", // Slate 100
+                    fill: "F1F5F9",
                     type: ShadingType.CLEAR,
                     color: "auto"
                   } : undefined,
@@ -1033,18 +1060,26 @@ function MainApp() {
       }
     };
 
-    const BLUE_COLOR = "2E75B5";
-
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
 
-      // Improved table detection: check if line contains multiple | characters
+      // Skip [SCORES] block content - we render a proper formatted table later
+      if (line === '[SCORES]' || line.startsWith('[SCORES]')) { insideScoresBlock = true; continue; }
+      if (line === '[/SCORES]' || line.startsWith('[/SCORES]')) { insideScoresBlock = false; continue; }
+      if (insideScoresBlock) continue;
+
+      // Skip horizontal rules
+      if (line === '---' || line === '***' || line === '___') {
+        docElements.push(new Paragraph({ spacing: { after: 200 } }));
+        continue;
+      }
+
+      // Table detection
       const pipeCount = (line.match(/\|/g) || []).length;
       if (pipeCount >= 2) {
         const cells = line.split('|')
           .map(c => c.trim())
           .filter((cell, index, array) => {
-            // If it starts/ends with |, filter out the empty strings at ends
             if (index === 0 && cell === "" && line.startsWith('|')) return false;
             if (index === array.length - 1 && cell === "" && line.endsWith('|')) return false;
             return true;
@@ -1066,17 +1101,17 @@ function MainApp() {
         continue;
       }
 
-      // Remove unwanted symbols: *, #, and leading - or *
-      const cleanLine = line.replace(/[*#]/g, '').replace(/^[-*]\s*/, '').trim();
+      // Clean markdown for pattern matching (keep original line for bold parsing)
+      const cleanLine = line.replace(/[*#]/g, '').replace(/^[-]\s*/, '').trim();
 
-      // Skip redundant header or formal salutations (but keep the one for Phu Quoc)
+      // Skip redundant header (but keep Phu Quoc reference)
       if (cleanLine.includes("Hội đồng chấm sáng kiến Đặc khu Phú Quốc")) {
         // Keep it
       } else if (cleanLine.toUpperCase() === "NỘI DUNG THẨM ĐỊNH" || cleanLine.toUpperCase().startsWith("KÍNH GỬI")) {
         continue;
       }
 
-      // Handle Section Headings (I., III., IV., V., VI.)
+      // Handle Section Headings (I., II., III., IV., V., VI., VII., VIII.)
       const sectionMatch = cleanLine.match(/^([IVX]+\.\s+.*)/);
       if (sectionMatch) {
         docElements.push(new Paragraph({
@@ -1114,7 +1149,7 @@ function MainApp() {
         const content = subHeadingMatch[2].trim();
         if (content) {
           docElements.push(new Paragraph({
-            children: [new TextRun({ text: content, size: 28 })],
+            children: parseBoldText(content),
             spacing: { after: 120 },
             alignment: AlignmentType.JUSTIFIED,
             indent: { firstLine: 450 }
@@ -1123,8 +1158,8 @@ function MainApp() {
         continue;
       }
 
-      // Handle Bold Labels (Ưu điểm, Hạn chế, Thay vì, Nâng cấp, ...)
-      const labelMatch = cleanLine.match(/^(Ưu điểm|Hạn chế|Nghi vấn|Trích dẫn bằng chứng|Thay vì|Nâng cấp|Logic và lập luận|Bằng chứng thực tế|Cấu trúc và Thể thức|Chính tả và Ngữ pháp|Sự khác biệt và giải pháp đột phá|Phạm vi lan tỏa|Tính khả thi|Hiệu quả định lượng|Hiệu quả định tính|Khóa học\/Kỹ năng|Hướng nghiên cứu|Chỉ số tin cậy|Phân tích|Mục tiêu ngắn hạn|Mục tiêu dài hạn|Công cụ AI|Câu hỏi|Yêu cầu|Gợi ý|Đối với giáo viên|Đối với học sinh):?\s*(.*)/i);
+      // Handle Bold Labels (extended list to capture ALL possible labels from AI)
+      const labelMatch = cleanLine.match(/^(Ưu điểm|Hạn chế|Nghi vấn|Trích dẫn bằng chứng|Thay vì|Nâng cấp|Logic và lập luận|Bằng chứng thực tế|Cấu trúc và Thể thức|Chính tả và Ngữ pháp|Sự khác biệt và giải pháp đột phá|Phạm vi lan tỏa|Tính khả thi|Hiệu quả định lượng|Hiệu quả định tính|Khóa học\/Kỹ năng|Hướng nghiên cứu|Chỉ số tin cậy|Phân tích|Phân tích chuyên sâu|Mục tiêu ngắn hạn|Mục tiêu dài hạn|Công cụ AI|Câu hỏi|Yêu cầu|Gợi ý|Đối với giáo viên|Đối với học sinh|Chỉ số đạo văn|Tầm nhìn chiến lược|Phản biện chuyên gia|Chỉ số Khoa học|Phân biệt Kế thừa và Đạo văn|Kiểm tra Bối cảnh địa phương|Phân tích "Dấu vân tay số"|Phân tích "Hố ngăn cách phong cách"|Phân tích Dấu vân tay số|Phân tích Hố ngăn cách phong cách|Kiểm tra Bối cảnh|Kết quả đánh giá|Nhận xét chung|Đề xuất|Kiến nghị|Kết luận|Xếp loại):?\s*(.*)/i);
       if (labelMatch) {
         docElements.push(new Paragraph({
           children: [
@@ -1137,7 +1172,7 @@ function MainApp() {
         const content = labelMatch[2].trim();
         if (content) {
           docElements.push(new Paragraph({
-            children: [new TextRun({ text: content, size: 28 })],
+            children: parseBoldText(content),
             spacing: { after: 120 },
             alignment: AlignmentType.JUSTIFIED,
             indent: { firstLine: 450 }
@@ -1156,9 +1191,25 @@ function MainApp() {
         continue;
       }
 
-      // Normal text
+      // Handle bullet point lines (- item or * item)
+      const bulletMatch = line.match(/^\s*[-*]\s+(.*)/);
+      if (bulletMatch) {
+        const bulletContent = bulletMatch[1].replace(/#/g, '').trim();
+        docElements.push(new Paragraph({
+          children: [
+            new TextRun({ text: "• ", bold: true, size: 28 }),
+            ...parseBoldText(bulletContent),
+          ],
+          spacing: { after: 80 },
+          alignment: AlignmentType.JUSTIFIED,
+          indent: { left: 720 },
+        }));
+        continue;
+      }
+
+      // Normal text - use parseBoldText to preserve markdown **bold** formatting
       docElements.push(new Paragraph({
-        children: [new TextRun({ text: cleanLine, size: 28 })],
+        children: parseBoldText(cleanLine),
         spacing: { after: 120 },
         alignment: AlignmentType.JUSTIFIED,
         indent: { firstLine: 450 }
@@ -1167,18 +1218,81 @@ function MainApp() {
 
     flushTable();
 
-    // Add Score Summary Table at the end
+    // =============================================
+    // BẢNG TỔNG HỢP ĐIỂM (Formatted SCORES table)
+    // =============================================
+    const scores = target.detailedScores || parseScores(target.analysisResult).detailed;
+
     docElements.push(new Paragraph({
       children: [
         new TextRun({
-          text: "[SCORES]",
+          text: "BẢNG TỔNG HỢP ĐIỂM ĐÁNH GIÁ",
           bold: true,
           size: 28,
-          color: "FFFFFF", // Hidden text
+          color: BLUE_COLOR,
         }),
       ],
-      spacing: { before: 400 },
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 400, after: 200 },
     }));
+
+    const scoreTableData = [
+      ['Tiêu chí đánh giá', 'Điểm tối đa', 'Điểm đạt'],
+      ['1. Hình thức trình bày', '1.0', (scores?.format || 0).toFixed(1)],
+      ['2. Tính khoa học & thực tiễn', '1.0', (scores?.scientific || 0).toFixed(1)],
+      ['3. Tính mới & sáng tạo', '3.0', (scores?.novelty || 0).toFixed(1)],
+      ['4. Khả năng áp dụng', '3.0', (scores?.applicability || 0).toFixed(1)],
+      ['5. Hiệu quả', '2.0', (scores?.efficiency || 0).toFixed(1)],
+      ['TỔNG ĐIỂM', '10.0', target.score.toFixed(1)],
+    ];
+
+    docElements.push(new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: scoreTableData.map((row, rowIndex) => new TableRow({
+        children: row.map((cellText, colIndex) => new TableCell({
+          width: { size: colIndex === 0 ? 50 : 25, type: WidthType.PERCENTAGE },
+          children: [new Paragraph({
+            children: [new TextRun({
+              text: cellText,
+              size: 28,
+              bold: rowIndex === 0 || rowIndex === scoreTableData.length - 1,
+              color: rowIndex === scoreTableData.length - 1 ? BLUE_COLOR : undefined,
+            })],
+            alignment: colIndex > 0 ? AlignmentType.CENTER : AlignmentType.LEFT,
+          })],
+          shading: rowIndex === 0 ? {
+            fill: "F1F5F9",
+            type: ShadingType.CLEAR,
+            color: "auto"
+          } : rowIndex === scoreTableData.length - 1 ? {
+            fill: "EEF2FF",
+            type: ShadingType.CLEAR,
+            color: "auto"
+          } : undefined,
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 6, color: "000000" },
+            bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000" },
+            left: { style: BorderStyle.SINGLE, size: 6, color: "000000" },
+            right: { style: BorderStyle.SINGLE, size: 6, color: "000000" },
+          },
+          margins: { top: 80, bottom: 80, left: 100, right: 100 },
+        }))
+      }))
+    }));
+
+    // AI Risk & Similarity summary
+    if (scores?.aiRisk || scores?.similarity) {
+      docElements.push(new Paragraph({
+        children: [
+          new TextRun({ text: "Đánh giá rủi ro AI: ", bold: true, size: 28 }),
+          new TextRun({ text: scores.aiRisk || "Chưa rõ", size: 28 }),
+          new TextRun({ text: "   |   Chỉ số đạo văn (Similarity): ", bold: true, size: 28 }),
+          new TextRun({ text: `${scores.similarity || 0}%`, size: 28 }),
+        ],
+        spacing: { before: 200, after: 200 },
+        alignment: AlignmentType.CENTER,
+      }));
+    }
 
     // Council's Note
     if (target.score < 6.0 || (target.similarity && target.similarity >= 25)) {
@@ -1186,7 +1300,7 @@ function MainApp() {
         children: [
           new TextRun({ text: "LƯU Ý CỦA HỘI ĐỒNG: ", bold: true, size: 28 }),
           new TextRun({
-            text: `Do Chỉ số đạo văn (Similarity) đạt mức ${target.similarity || 0}% ${target.similarity >= 25 ? '(vượt ngưỡng 25%)' : ''} và mắc sai sót về tính nguyên bản hoặc văn phong, căn cứ theo quy tắc chấm điểm nghiêm ngặt, tổng điểm cuối cùng của sáng kiến bị khống chế ở mức không đạt (Dưới 6.0 điểm). Tác giả cần nghiêm túc rà soát và chỉnh sửa nội dung trước khi nộp lại.`,
+            text: `Do Chỉ số đạo văn (Similarity) đạt mức ${target.similarity || 0}% ${(target.similarity || 0) >= 25 ? '(vượt ngưỡng 25%)' : ''} và mắc sai sót về tính nguyên bản hoặc văn phong, căn cứ theo quy tắc chấm điểm nghiêm ngặt, tổng điểm cuối cùng của sáng kiến bị khống chế ở mức không đạt (Dưới 6.0 điểm). Tác giả cần nghiêm túc rà soát và chỉnh sửa nội dung trước khi nộp lại.`,
             size: 28
           }),
         ],
@@ -1212,13 +1326,29 @@ function MainApp() {
         })
       ],
       alignment: AlignmentType.CENTER,
+      spacing: { after: 200 }
+    }));
+
+    // Classification
+    const classification = target.score >= 8.5 ? "Giỏi" : target.score >= 7 ? "Khá" : target.score >= 6 ? "Đạt" : "Không đạt";
+    docElements.push(new Paragraph({
+      children: [
+        new TextRun({ text: "Xếp loại: ", bold: true, size: 30 }),
+        new TextRun({
+          text: classification.toUpperCase(),
+          bold: true,
+          size: 30,
+          color: target.score >= 8 ? "228B22" : target.score >= 6 ? "FF8C00" : "FF0000"
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
       spacing: { after: 400 }
     }));
 
-    // Signature Section
+    // Signature Section - Dynamic year
     docElements.push(new Paragraph({
       children: [
-        new TextRun({ text: "An Giang, ngày ..... tháng ..... năm 2026", italics: true, size: 28 }),
+        new TextRun({ text: `An Giang, ngày ..... tháng ..... năm ${currentYear}`, italics: true, size: 28 }),
       ],
       alignment: AlignmentType.RIGHT,
       spacing: { before: 600, after: 100 },
@@ -1226,6 +1356,20 @@ function MainApp() {
     docElements.push(new Paragraph({
       children: [
         new TextRun({ text: "XÁC NHẬN CỦA HỘI ĐỒNG", bold: true, size: 28 }),
+      ],
+      alignment: AlignmentType.RIGHT,
+      spacing: { after: 200 },
+    }));
+    docElements.push(new Paragraph({
+      children: [
+        new TextRun({ text: "CHỦ TỊCH HỘI ĐỒNG", bold: true, size: 28 }),
+      ],
+      alignment: AlignmentType.RIGHT,
+      spacing: { after: 100 },
+    }));
+    docElements.push(new Paragraph({
+      children: [
+        new TextRun({ text: "(Ký tên, đóng dấu)", italics: true, size: 24, color: "888888" }),
       ],
       alignment: AlignmentType.RIGHT,
       spacing: { after: 800 },
@@ -1247,8 +1391,13 @@ function MainApp() {
       }],
     });
 
-    const blob = await Packer.toBlob(doc);
-    saveAs(blob, `Bao_cao_Tham_dinh_${target.title.replace(/\s+/g, '_')}.docx`);
+    try {
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `Bao_cao_Tham_dinh_${target.title.replace(/\s+/g, '_')}.docx`);
+    } catch (error) {
+      console.error('Error exporting DOCX:', error);
+      alert('Lỗi khi xuất file báo cáo. Vui lòng thử lại.');
+    }
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {

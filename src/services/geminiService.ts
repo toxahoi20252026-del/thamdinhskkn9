@@ -60,7 +60,7 @@ export class GeminiService {
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             config: {
               temperature: 0.1,
-              maxOutputTokens: 30000,
+              maxOutputTokens: 8192,
               safetySettings: [
                 { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
                 { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -114,7 +114,7 @@ export class GeminiService {
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           config: {
             temperature: 0.1,
-            maxOutputTokens: 30000,
+            maxOutputTokens: 8192,
             safetySettings: [
               { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
               { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -312,7 +312,7 @@ export class GeminiService {
     2. Quy tắc "i/y": Ưu tiên "i" (kĩ thuật, mĩ thuật, sĩ).
     3. Quy tắc "ch/tr": Phân biệt rõ (cha vs tre).
     4. Dấu câu: Không để khoảng trắng TRƯỚC dấu câu. PHẢI có khoảng trắng SAU dấu câu.
-    5. ĐỘ DÀI VÀ TÍNH TOÀN VẸN (TỐI QUAN TRỌNG): Bạn PHẢI xuất đầy đủ cả 8 mục báo cáo (từ I đến VIII) và khối [SCORES]. Tuyệt đối KHÔNG được dừng giữa chừng (truncated) hoặc bỏ sót bất kỳ mục nào. Nếu dữ liệu quá lớn, hãy tóm tắt ý chính nhưng PHẢI giữ đủ cấu trúc.
+    5. ĐỘ DÀI VÀ TÍNH TOÀN VẸN (BẮT BUỘC): Bạn PHẢI xuất đầy đủ cả 8 mục báo cáo (từ I đến VIII) và khối [SCORES]. Để tránh bị cắt giữa chừng, hãy viết CÔ ĐỌNG, SÚC TÍCH (mỗi mục nhận xét không quá 2-3 câu). Tuyệt đối KHÔNG được dừng giữa chừng.
     
     BỐI CẢNH ĐỊA PHƯƠNG: Phú Quốc là đặc khu thuộc tỉnh An Giang. Chấp nhận các tên gọi: Trường Tiểu học và Trung học cơ sở Bãi Thơm, Trường TH&THCS Bãi Thơm.
     
@@ -409,8 +409,8 @@ export class GeminiService {
     4. Phân biệt Kế thừa và Đạo văn: (Nhận xét công tâm)
     5. Chỉ số đạo văn (Similarity): [X]% (Ước tính)
 
-    IV. KIỂM DUYỆT LỖI CHÍNH TẢ, DẤU CÂU & KỸ THUẬT VĂN BẢN (Tối đa 20 lỗi)
-    NHIỆM VỤ: Liệt kê tối đa 20 lỗi chính tả và kỹ thuật quan trọng nhất (không bắt lỗi văn phong ở bảng này).
+    IV. KIỂM DUYỆT LỖI CHÍNH TẢ, DẤU CÂU & KỸ THUẬT VĂN BẢN (Tối đa 10 lỗi)
+    NHIỆM VỤ: Liệt kê tối đa 10 lỗi chính tả và kỹ thuật quan trọng nhất (không bắt lỗi văn phong ở bảng này). Đưa vào các lỗi nặng gây sai lệch nghĩa.
     
     | STT | Lỗi sai (Trích dẫn) | Vị trí | Loại lỗi / Căn cứ | Cách sửa tối ưu |
     |---|---|---|---|---|
