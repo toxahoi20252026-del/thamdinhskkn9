@@ -14,29 +14,33 @@ export class GeminiService {
   }
 
   /**
-   * Normalizes model names to strictly follow the current Google API requirements
+   * Normalizes model names to strictly follow the current Google API requirements (March 2026)
    */
   private normalizeModel(name: string): string {
     const modelName = name.trim().toLowerCase();
     
-    // Exact mapping for requested models to stable IDs
-    if (modelName.includes("3.1-flash-lite")) return "gemini-2.0-flash-lite-preview-02-05";
-    if (modelName.includes("3-flash")) return "gemini-2.0-flash";
-    if (modelName.includes("2.5-pro")) return "gemini-2.0-pro-exp-02-05";
-    if (modelName.includes("2.5-flash")) return "gemini-2.0-flash";
+    // Gemini 3.1 Series (Latest Preview)
+    if (modelName.includes("3.1-pro")) return "gemini-3.1-pro";
+    if (modelName.includes("3.1-flash-lite")) return "gemini-3.1-flash-lite";
+    if (modelName.includes("3.1-flash")) return "gemini-3.1-flash-lite"; // Fallback to lite for now
     
-    // Standard version mappings
-    if (modelName === "gemini-2-flash") return "gemini-2.0-flash";
-    if (modelName === "gemini-2-flash-exp") return "gemini-2.0-flash-exp";
-    if (modelName === "gemini-2-flash-lite") return "gemini-2.0-flash-lite-preview-02-05";
+    // Gemini 3 Series
+    if (modelName.includes("gemini-3-flash")) return "gemini-3-flash";
+    if (modelName === "gemini-3") return "gemini-3-flash";
     
-    // Ensure base models are clean
-    if (modelName === "gemini-1.5-flash") return "gemini-1.5-flash";
-    if (modelName === "gemini-1.5-pro") return "gemini-1.5-pro";
-    if (modelName === "gemini-2.0-flash") return "gemini-2.0-flash";
+    // Gemini 2.5 Series (Generally Available - Stable)
+    if (modelName.includes("2.5-pro")) return "gemini-2.5-pro";
+    if (modelName.includes("2.5-flash-lite")) return "gemini-2.5-flash-lite";
+    if (modelName.includes("2.5-flash")) return "gemini-2.5-flash";
+    
+    // Legacy mapping support for very old IDs
+    if (modelName.includes("1.5-pro")) return "gemini-1.5-pro";
+    if (modelName.includes("1.5-flash")) return "gemini-1.5-flash";
 
-    return name.trim(); // Fallback to trimmed original
+    return name.trim(); 
   }
+
+
 
   async analyzeInitiative(title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-1.5-flash"): Promise<string | undefined> {
     const prompt = this.getAnalysisPrompt(title, content, author, unit);
