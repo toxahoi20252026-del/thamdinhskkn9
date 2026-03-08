@@ -64,7 +64,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 import { Initiative, AppSettings, TabType, DetailedScores, Grade, User as AppUser } from './types';
-import { GeminiService, analyzeInitiative, chatWithExpert } from './services/geminiService';
+import { GeminiService, analyzeInitiative, analyzeInitiativeStream, chatWithExpert, chatWithExpertStream } from './services/geminiService';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -516,20 +516,28 @@ function MainApp() {
     const effectiveTitle = skTitle.trim() || "Sáng kiến tự động trích xuất";
 
     setIsAnalyzing(true);
-    setAnalysisResult(null);
+    setAnalysisResult(""); // Start with empty string for streaming
     setAnalysisError(null);
     setCurrentDetailedScores(null);
 
     try {
-      const apiKey = settings.apiKey || envKey;
-
       // Get existing initiative titles for internal reference (Limit to last 15 to improve speed)
       const existingTitles = initiatives.slice(0, 15).map(i => i.title).join(', ');
       const referenceContext = initiatives.length > 0
         ? `\nTHƯ VIỆN ĐỐI CHIẾU NỘI BỘ (15 sáng kiến gần nhất): ${existingTitles}. Kiểm tra tính trùng lặp.`
         : "";
 
-      const result = await analyzeInitiative(apiKey, effectiveTitle, skContent + referenceContext, skAuthor || 'Chưa rõ', skUnit || 'Trường TH&THCS Bãi Thơm', settings.model);
+      const result = await analyzeInitiativeStream(
+        apiKey, 
+        effectiveTitle, 
+        skContent + referenceContext, 
+        (chunk) => {
+          setAnalysisResult(chunk);
+        },
+        skAuthor || 'Chưa rõ', 
+        skUnit || 'Trường TH&THCS Bãi Thơm', 
+        settings.model
+      );
 
       if (result) {
         // Clean result: remove unwanted salutations and specific unwanted errors
@@ -602,10 +610,12 @@ function MainApp() {
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Lỗi không xác định';
       setAnalysisError(msg);
+      // If we have some partial result, keep it but show error
     } finally {
       setIsAnalyzing(false);
     }
   };
+
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -638,15 +648,16 @@ function MainApp() {
         });
 
         const pdf = await loadingTask.promise;
-        let fullText = '';
+        const pagePromises = [];
         for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items
-            .map((item: any) => item.str || '')
-            .join(' ');
-          fullText += pageText + '\n';
+          pagePromises.push((async () => {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            return textContent.items.map((item: any) => item.str || '').join(' ');
+          })());
         }
+        const pageTexts = await Promise.all(pagePromises);
+        let fullText = pageTexts.join('\n');
 
         const trimmedText = fullText.trim();
         if (!trimmedText) {
@@ -751,18 +762,25 @@ function MainApp() {
         });
       });
 
-      const response = await chatWithExpert(apiKey, history, userMsg, settings.model);
-      if (response) {
-        const aiMsg = { role: 'ai' as const, text: response };
-        const updatedMessages = [...newMessages, aiMsg];
-        setChatMessages(updatedMessages);
+      const response = await chatWithExpertStream(apiKey, history, userMsg, (chunk) => {
+        setChatMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'ai') {
+            return [...prev.slice(0, -1), { role: 'ai', text: chunk }];
+          } else {
+            return [...prev, { role: 'ai', text: chunk }];
+          }
+        });
+      }, settings.model);
 
+      if (response) {
         // Sync to backend if we have an active initiative
         const targetId = activeChatInitiativeId || viewingInitiative?.id;
         if (targetId) {
           const initIdx = initiatives.findIndex(i => i.id === targetId);
           if (initIdx !== -1) {
-            const updatedInit = { ...initiatives[initIdx], chatHistory: updatedMessages };
+            const finalMessages = [...newMessages, { role: 'ai' as const, text: response }];
+            const updatedInit = { ...initiatives[initIdx], chatHistory: finalMessages };
 
             // Local update
             const newInits = [...initiatives];

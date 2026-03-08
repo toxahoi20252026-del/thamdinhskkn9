@@ -8,7 +8,91 @@ export class GeminiService {
   }
 
   async analyzeInitiative(title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-1.5-flash"): Promise<string | undefined> {
+    const prompt = this.getAnalysisPrompt(title, content, author, unit);
 
+    const analyzeWithRetry = async (retryCount = 0): Promise<string> => {
+      try {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout: AI phản hồi quá chậm (180 giây). Vui lòng kiểm tra lại nội dung hoặc thử lại lần nữa.")), 180000)
+        );
+
+        const analysisPromise = (async () => {
+          const response: GenerateContentResponse = await this.ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: {
+              temperature: 0.2,
+            }
+          });
+
+          if (!response || !response.text) {
+            throw new Error("Không nhận được nội dung từ AI.");
+          }
+          return response.text;
+        })();
+
+        return await Promise.race([analysisPromise, timeoutPromise]) as string;
+      } catch (error: any) {
+        return this.handleRetry(error, retryCount, () => analyzeWithRetry(retryCount + 1));
+      }
+    };
+
+    try {
+      return await analyzeWithRetry();
+    } catch (error: any) {
+      throw this.transformError(error, modelName);
+    }
+  }
+
+  async analyzeInitiativeStream(
+    title: string, 
+    content: string, 
+    onChunk: (chunk: string) => void,
+    author: string = "Chưa rõ", 
+    unit: string = "Trường TH&THCS Bãi Thơm", 
+    modelName: string = "gemini-1.5-flash"
+  ): Promise<string> {
+    const prompt = this.getAnalysisPrompt(title, content, author, unit);
+
+    const analyzeWithRetry = async (retryCount = 0): Promise<string> => {
+      try {
+        const result = await this.ai.models.generateContentStream({
+          model: modelName,
+          contents: prompt,
+          config: {
+            temperature: 0.2,
+          }
+        });
+
+        let fullText = "";
+        // In @google/genai, the result is the stream itself or contains a stream property
+        const stream = (result as any).stream || result;
+        
+        for await (const chunk of stream) {
+          const chunkText = chunk.text ? chunk.text() : "";
+          if (chunkText) {
+            fullText += chunkText;
+            onChunk(fullText);
+          }
+        }
+
+        if (!fullText) {
+          throw new Error("Không nhận được nội dung từ AI.");
+        }
+        return fullText;
+      } catch (error: any) {
+        return this.handleRetry(error, retryCount, () => analyzeWithRetry(retryCount + 1));
+      }
+    };
+
+    try {
+      return await analyzeWithRetry();
+    } catch (error: any) {
+      throw this.transformError(error, modelName);
+    }
+  }
+
+  private getAnalysisPrompt(title: string, content: string, author: string, unit: string): string {
     const now = new Date();
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
@@ -17,7 +101,7 @@ export class GeminiService {
     const year = now.getFullYear();
     const timeStr = `${hours}:${minutes} ngày ${day}/${month}/${year}`;
 
-    const prompt = `BẠN LÀ MỘT GIÁO SƯ NGÔN NGỮ HỌC, CHUYÊN GIA HIỆU ĐÍNH VĂN BẢN VỚI 45 NĂM KINH NGHIỆM, VÀ LÀ GIÁM KHẢO CHẤM THI NGỮ VĂN CẤP QUỐC GIA.
+    return `BẠN LÀ MỘT GIÁO SƯ NGÔN NGỮ HỌC, CHUYÊN GIA HIỆU ĐÍNH VĂN BẢN VỚI 45 NĂM KINH NGHIỆM, VÀ LÀ GIÁM KHẢO CHẤM THI NGỮ VĂN CẤP QUỐC GIA.
     
     BỐI CẢNH & QUY CHUẨN TỐI CAO:
     - Thời điểm thẩm định: ${timeStr}.
@@ -37,12 +121,12 @@ export class GeminiService {
     - QUY TẮC CHẤM ĐIỂM NGHIÊM NGẶT: Nếu Chỉ số đạo văn (Similarity) từ 25% trở lên, TỔNG ĐIỂM cuối cùng TUYỆT ĐỐI KHÔNG được vượt quá 5.9 điểm (mức không Đạt).
     - ĐÁNH GIÁ NHẸ NHÀNG (Leniency Rule): Hãy bù đắp cho công sức của giáo viên bằng cách ước tính Chỉ số đạo văn (Similarity) thấp hơn thực tế khoảng 3-5% (ví dụ: nếu bạn thấy giống 35% thì hãy báo cáo 31% hoặc 32%, nếu thấy giống 30% thì báo cáo 26% hoặc 27%). Điều này giúp tạo động lực và cơ hội cho giáo viên sửa đổi mà vẫn giữ được tính thực tế của báo cáo.
 
-    NHIỆM VỤ QUAN TRỌNG - THẨM ĐỊNH CHUYÊN SÂU & KHẤT KHE:
-    Báo cáo của bạn phải đạt trình độ chuyên môn xuất sắc, mang tính phản biện cao dựa trên các tiêu chuẩn sau:
-    1. Soi xét "Dấu vân tay số" AI: Phát hiện cấu trúc liệt kê đồng đẳng, giọng văn máy móc, thiếu trải nghiệm thực tế sư phạm.
-    2. Phân tích "Hố ngăn cách phong cách" (Style Gap): So sánh sự đồng nhất văn phong giữa phần Lý luận (thường sao chép) và Thực trạng/Giải pháp (thường tự viết).
-    3. Kiểm định tính Logic: Nhận diện câu què, câu cụt, câu thiếu chủ ngữ, câu rườm rà, lặp từ hoặc mâu thuẫn ngữ nghĩa.
-    4. Phản biện đa chiều (Devil's Advocate): Đặt ra các câu hỏi hóc búa để thử thách tính hiệu quả thực sự của sáng kiến.
+    NHIỆM VỤ QUAN TRỌNG - THẨM ĐỊNH KỸ THUẬT & NGÔN NGỮ:
+    Báo cáo của bạn phải đạt trình độ chuyên môn xuất sắc, mang tính thẩm định chính xác cao:
+    1. Kiểm soát Chính tả, Dấu câu & Lỗi gõ (ƯU TIÊN TUYỆT ĐỐI): Phát hiện triệt để các lỗi chính tả, sai quy tắc dấu câu (Nghị định 30), các lỗi gõ văn bản thừa/thiếu dấu, thừa/thiếu từ, gõ nhầm chữ.
+    2. Kiểm định tính Xác thực & Logic: Nhận diện câu thiếu thành phần (chủ ngữ/vị ngữ), câu mâu thuẫn ngữ nghĩa hoặc không rõ nghĩa.
+    3. Soi xét "Dấu vân tay số" AI: Phát hiện các đoạn văn có dấu hiệu máy móc, thiếu trải nghiệm thực tế.
+    4. LƯU Ý: Tuyệt đối KHÔNG bắt lỗi hay đề xuất sửa đổi về "văn phong sư phạm", "giọng văn", hay các yếu tố mang tính cảm tính. Chỉ tập trung vào cái ĐÚNG và cái SAI về mặt kỹ thuật và quy định hành chính.
 
     TIÊU CHUẨN CHẤM ĐIỂM CỰC KỲ KHẤT KHE & TRỪ ĐIỂM THẲNG TAY:
     - Điểm Giỏi (8-10): CHỈ dành cho những sáng kiến thực sự xuất sắc, KHÔNG có lỗi chính tả/hành văn, minh chứng số liệu logic tuyệt đối.
@@ -127,12 +211,18 @@ export class GeminiService {
     4. Phân biệt Kế thừa và Đạo văn: (Nhận xét công tâm)
     5. Chỉ số đạo văn (Similarity): [X]% (Ước tính)
 
-    IV. KIỂM DUYỆT LỖI CHÍNH TẢ, HÀNH VĂN & QUY CHUẨN VĂN THƯ (Chuyên sâu & Khách quan)
-    NHIỆM VỤ: Hãy thực hiện kiểm soát toàn diện và công tâm mọi lỗi trong văn bản:
-    - LIỆT KÊ TẤT CẢ các lỗi thực sự được phát hiện (tối đa 100 lỗi).
-    - TUYỆT ĐỐI KHÔNG tự "sáng tạo" ra lỗi hoặc bắt lỗi sai các từ đúng chỉ để cho đủ số lượng. Nếu văn bản ít lỗi, hãy chỉ liệt kê đúng thực tế.
-    - KHÔNG ĐƯỢC BỎ SÓT bất kỳ lỗi thực tế nào liên quan đến: chính tả, dùng từ phổ thông bị đọc chệch (nền nếp), quy tắc i/y, ch/tr, dấu câu và thể thức Nghị định 30.
-    - NGUYÊN TẮC: Thà ít mà đúng còn hơn nhiều mà sai.
+    IV. KIỂM DUYỆT LỖI CHÍNH TẢ, DẤU CÂU & KỸ THUẬT VĂN BẢN (Số lượng thực tế, Tối đa 40)
+    NHIỆM VỤ: Đây là phần quan trọng nhất. Hãy thực hiện rà soát cực kỳ chi tiết các lỗi kỹ thuật:
+    - DANH SÁCH LỖI: Liệt kê tối đa 40 lỗi quan trọng nhất. 
+        + Nếu văn bản có ít lỗi (ví dụ 1, 5, 12, 25 lỗi...), hãy liệt kê ĐÚNG số lượng thực tế, không cố tìm thêm.
+        + Nếu có trên 40 lỗi, hãy ưu tiên chọn lọc các lỗi chính tả nặng nhất để liệt kê đủ 40 lỗi.
+    - CÁC LOẠI LỖI BẮT BUỘC PHẢI TÌM:
+        1. Lỗi chính tả: Viết thiếu từ, thiếu dấu, gõ sai dấu, sai từ Hán Việt, sai quy tắc "i/y", "ch/tr", "nền nếp".
+        2. Lỗi dấu câu: Sai quy tắc khoảng trắng theo Nghị định 30 (khoảng trắng trước/sau dấu câu), dùng sai loại dấu câu, lỗi dấu ngoặc đơn/ngoặc kép.
+        3. Lỗi gõ văn bản: Chữ bị dính nhau, thừa khoảng trắng giữa các chữ, gõ nhầm ký tự.
+        4. Lỗi dùng từ: Dùng từ sai nghĩa hoặc sai hoàn toàn ngữ cảnh.
+    - TUYỆT ĐỐI KHÔNG BẮT LỖI VĂN PHONG: Không bắt các lỗi về "văn phong rườm rà", "lặp từ", "diễn đạt chưa hay", hay "phong cách văn bản" trong bảng này. Chỉ tập trung vào lỗi SAI kỹ thuật/chính tả.
+    - CẢNH BÁO: Tuyệt đối không tự "sáng tác" ra lỗi. Nếu từ đúng thì không được liệt kê là sai chỉ để cho đủ số lượng.
     
     | STT | Lỗi sai (Trích dẫn) | Vị trí | Loại lỗi / Căn cứ | Cách sửa tối ưu |
     |---|---|---|---|---|
@@ -176,142 +266,110 @@ export class GeminiService {
     AI_Risk: [Thấp/Trung bình/Cao]
     Similarity: [0-100]%
     [/SCORES]`;
-
-    const analyzeWithRetry = async (retryCount = 0): Promise<string> => {
-      try {
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout: AI phản hồi quá chậm (180 giây). Vui lòng kiểm tra lại nội dung hoặc thử lại lần nữa.")), 180000)
-        );
-
-        const analysisPromise = (async () => {
-          const response: GenerateContentResponse = await this.ai.models.generateContent({
-            model: modelName,
-            contents: prompt,
-            config: {
-              temperature: 0.2,
-            }
-          });
-
-          if (!response || !response.text) {
-            throw new Error("Không nhận được nội dung từ AI.");
-          }
-          return response.text;
-        })();
-
-        return await Promise.race([analysisPromise, timeoutPromise]) as string;
-      } catch (error: any) {
-        const isRetryable = error?.message?.includes("503") ||
-          error?.message?.includes("429") ||
-          error?.message?.includes("UNAVAILABLE") ||
-          error?.message?.includes("RESOURCE_EXHAUSTED") ||
-          error?.message?.includes("Timeout");
-
-        if (isRetryable && retryCount < 3) {
-          const delay = Math.pow(2, retryCount) * 2000; // Exponential backoff: 2s, 4s, 8s
-          console.log(`Retry attempt ${retryCount + 1} due to service instability. Waiting ${delay}ms...`);
-          await new Promise(r => setTimeout(r, delay));
-          return analyzeWithRetry(retryCount + 1);
-        }
-        throw error;
-      }
-    };
-
-    try {
-      return await analyzeWithRetry();
-    } catch (error: any) {
-      console.error("Gemini API Error Detail:", {
-        message: error?.message,
-        stack: error?.stack,
-        model: modelName
-      });
-
-      let errorMsg = error?.message || "Lỗi kết nối hoặc hết hạn quota";
-
-      // Try to parse JSON error from Gemini if present
-      if (errorMsg.includes('{')) {
-        try {
-          const jsonPart = errorMsg.substring(errorMsg.indexOf('{'));
-          const parsed = JSON.parse(jsonPart);
-          if (parsed.error?.message) {
-            errorMsg = parsed.error.message;
-          }
-        } catch (e) {
-          // Fallback to original message
-        }
-      }
-
-      // Localize common errors
-      if (errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE")) {
-        errorMsg = "Máy chủ AI hiện đang bận do nhu cầu cao. Vui lòng thử lại sau vài giây.";
-      } else if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
-        errorMsg = "Đã vượt quá giới hạn yêu cầu (Quota). Vui lòng đợi một lát trước khi thử lại.";
-      }
-
-      throw new Error(`Lỗi phân tích: ${errorMsg}`);
-    }
   }
 
   async chatWithExpert(history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-1.5-flash"): Promise<string | undefined> {
-    console.log(`[ChatExpert] Sending message to ${modelName}`);
-    const startTime = Date.now();
-
     const chatWithRetry = async (retryCount = 0): Promise<string> => {
       try {
-        // Use stateless generateContent for better compatibility
-        const contents = [
-          ...history,
-          { role: 'user', parts: [{ text: message }] }
-        ];
+        const contents = [...history, { role: 'user', parts: [{ text: message }] }];
+        const response: GenerateContentResponse = await this.ai.models.generateContent({
+          model: modelName,
+          contents: contents,
+          config: { temperature: 0.7 }
+        });
 
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Yêu cầu quá thời gian (180 giây). Vui lòng thử lại với nội dung ngắn hơn.")), 180000)
-        );
-
-        const chatPromise = (async () => {
-          const response: any = await this.ai.models.generateContent({
-            model: modelName,
-            contents: contents,
-            config: {
-              temperature: 0.7,
-            }
-          });
-
-          if (!response || !response.text) {
-            throw new Error("Không nhận được phản hồi từ AI.");
-          }
-          return response.text;
-        })();
-
-        return await Promise.race([chatPromise, timeoutPromise]);
+        if (!response || !response.text) throw new Error("Không nhận được phản hồi từ AI.");
+        return response.text;
       } catch (error: any) {
-        const isRetryable = error?.message?.includes("503") ||
-          error?.message?.includes("429") ||
-          error?.message?.includes("UNAVAILABLE");
-
-        if (isRetryable && retryCount < 2) {
-          const delay = Math.pow(2, retryCount) * 1500;
-          await new Promise(r => setTimeout(r, delay));
-          return chatWithRetry(retryCount + 1);
-        }
-        throw error;
+        return this.handleRetry(error, retryCount, () => chatWithRetry(retryCount + 1));
       }
     };
 
     try {
-      const text = await chatWithRetry();
-      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`[ChatExpert] Success in ${duration}s`);
-      return text;
+      return await chatWithRetry();
     } catch (error: any) {
-      console.error("[ChatExpert] Error:", error);
-      let errorMsg = error?.message || "Lỗi kết nối";
-
-      if (errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE")) {
-        errorMsg = "Máy chủ bận, vui lòng thử lại.";
-      }
-
-      throw new Error(`Lỗi đối thoại: ${errorMsg}`);
+      throw this.transformError(error, modelName);
     }
+  }
+
+  async chatWithExpertStream(
+    history: { role: 'user' | 'model', parts: { text: string }[] }[], 
+    message: string, 
+    onChunk: (chunk: string) => void,
+    modelName: string = "gemini-1.5-flash"
+  ): Promise<string> {
+    const chatWithRetry = async (retryCount = 0): Promise<string> => {
+      try {
+        const contents = [...history, { role: 'user', parts: [{ text: message }] }];
+        const result = await this.ai.models.generateContentStream({
+          model: modelName,
+          contents: contents,
+          config: { temperature: 0.7 }
+        });
+
+        let fullText = "";
+        const stream = (result as any).stream || result;
+        for await (const chunk of stream) {
+          const chunkText = chunk.text ? chunk.text() : "";
+          if (chunkText) {
+            fullText += chunkText;
+            onChunk(fullText);
+          }
+        }
+        return fullText;
+      } catch (error: any) {
+        return this.handleRetry(error, retryCount, () => chatWithRetry(retryCount + 1));
+      }
+    };
+
+    try {
+      return await chatWithRetry();
+    } catch (error: any) {
+      throw this.transformError(error, modelName);
+    }
+  }
+
+  private handleRetry(error: any, retryCount: number, retryFn: () => Promise<string>): Promise<string> {
+    const isRetryable = error?.message?.includes("503") ||
+      error?.message?.includes("429") ||
+      error?.message?.includes("UNAVAILABLE") ||
+      error?.message?.includes("RESOURCE_EXHAUSTED") ||
+      error?.message?.includes("Timeout");
+
+    if (isRetryable && retryCount < 3) {
+      const delay = Math.pow(2, retryCount) * 2000;
+      console.log(`Retry attempt ${retryCount + 1} due to service instability. Waiting ${delay}ms...`);
+      return new Promise(r => setTimeout(r, delay)).then(retryFn);
+    }
+    throw error;
+  }
+
+  private transformError(error: any, modelName: string): Error {
+    console.error("Gemini API Error Detail:", {
+      message: error?.message,
+      stack: error?.stack,
+      model: modelName
+    });
+
+    let errorMsg = error?.message || "Lỗi kết nối hoặc hết hạn quota";
+
+    if (errorMsg.includes('{')) {
+      try {
+        const jsonPart = errorMsg.substring(errorMsg.indexOf('{'));
+        const parsed = JSON.parse(jsonPart);
+        if (parsed.error?.message) {
+          errorMsg = parsed.error.message;
+        }
+      } catch (e) {}
+    }
+
+    if (errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE")) {
+      errorMsg = "Máy chủ AI hiện đang bận do nhu cầu cao. Vui lòng thử lại sau vài giây.";
+    } else if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
+      errorMsg = "Đã vượt quá giới hạn yêu cầu (Quota). Vui lòng đợi một lát trước khi thử lại.";
+    }
+
+    return new Error(`Lỗi: ${errorMsg}`);
   }
 }
 
@@ -320,7 +378,17 @@ export const analyzeInitiative = async (apiKey: string, title: string, content: 
   return service.analyzeInitiative(title, content, author, unit, modelName);
 };
 
+export const analyzeInitiativeStream = async (apiKey: string, title: string, content: string, onChunk: (chunk: string) => void, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-1.5-flash") => {
+  const service = new GeminiService(apiKey);
+  return service.analyzeInitiativeStream(title, content, onChunk, author, unit, modelName);
+};
+
 export const chatWithExpert = async (apiKey: string, history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-1.5-flash") => {
   const service = new GeminiService(apiKey);
   return service.chatWithExpert(history, message, modelName);
+};
+
+export const chatWithExpertStream = async (apiKey: string, history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, onChunk: (chunk: string) => void, modelName: string = "gemini-1.5-flash") => {
+  const service = new GeminiService(apiKey);
+  return service.chatWithExpertStream(history, message, onChunk, modelName);
 };
