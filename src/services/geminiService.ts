@@ -49,7 +49,7 @@ export class GeminiService {
     const analyzeWithRetry = async (retryCount = 0): Promise<string> => {
       try {
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout: AI phản hồi quá chậm (180 giây). Vui lòng kiểm tra lại nội dung hoặc thử lại lần nữa.")), 180000)
+          setTimeout(() => reject(new Error("Timeout: AI phản hồi quá chậm (300 giây). Vui lòng kiểm tra lại nội dung hoặc thử lại lần nữa.")), 300000)
         );
 
         const analysisPromise = (async () => {
@@ -59,6 +59,13 @@ export class GeminiService {
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             config: {
               temperature: 0.2,
+              maxOutputTokens: 8192,
+              safetySettings: [
+                { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+              ]
             }
           });
 
@@ -100,16 +107,31 @@ export class GeminiService {
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           config: {
             temperature: 0.2,
+            maxOutputTokens: 8192,
+            safetySettings: [
+              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+            ]
           }
         });
 
         let fullText = "";
+        let finishReason = "";
         for await (const chunk of result) {
           const chunkText = chunk.text;
+          if (chunk.candidates?.[0]?.finishReason) {
+            finishReason = chunk.candidates[0].finishReason;
+          }
           if (chunkText) {
             fullText += chunkText;
             onChunk(fullText);
           }
+        }
+
+        if (finishReason && finishReason !== "STOP" && finishReason !== "COMPLETE") {
+          console.warn(`Cảnh báo: AI dừng giữa chừng với lý do: ${finishReason}. Nội dung có thể bị thiếu.`);
         }
 
         if (!fullText) {
@@ -136,7 +158,16 @@ export class GeminiService {
         const response: GenerateContentResponse = await (this.ai.models.generateContent as any)({
           model: targetModel,
           contents: contents,
-          config: { temperature: 0.7 }
+          config: { 
+            temperature: 0.7,
+            maxOutputTokens: 4096,
+            safetySettings: [
+              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+            ]
+          }
         });
 
         const text = response.text;
@@ -167,7 +198,16 @@ export class GeminiService {
         const result = await (this.ai.models.generateContentStream as any)({
           model: targetModel,
           contents: contents,
-          config: { temperature: 0.7 }
+          config: { 
+            temperature: 0.7,
+            maxOutputTokens: 4096,
+            safetySettings: [
+              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+            ]
+          }
         });
 
         let fullText = "";
@@ -250,6 +290,8 @@ export class GeminiService {
     const timeStr = `${hours}:${minutes} ngày ${day}/${month}/${year}`;
 
     return `BẠN LÀ MỘT GIÁO SƯ NGÔN NGỮ HỌC, CHUYÊN GIA HIỆU ĐÍNH VĂN BẢN VỚI 45 NĂM KINH NGHIỆM, VÀ LÀ GIÁM KHẢO CHẤM THI NGỮ VĂN CẤP QUỐC GIA.
+    
+    YÊU CẦU QUAN TRỌNG NHẤT: BẠN PHẢI HOÀN THÀNH TOÀN BỘ CẤU TRÚC BÁO CÁO TỪ MỤC I ĐẾN MỤC VIII. TUYỆT ĐỐI KHÔNG ĐƯỢC DỪNG LẠI GIỮA CHỪNG. NẾU VĂN BẢN QUÁ DÀI, HÃY TỐI ƯU HÓA CÔ ĐỌNG NHƯNG VẪN PHẢI ĐẢM BẢO ĐẦY ĐỦ CÁC MỤC VÀ KHÔNG ĐƯỢC BỎ QUA KHỐI [SCORES] Ở CUỐI CÙNG.
     
     BỐI CẢNH & QUY CHUẨN TỐI CAO:
     - Thời điểm thẩm định: ${timeStr}.
