@@ -16,13 +16,19 @@ interface Store {
   settings: { apiKey: string; model: string } | null;
 }
 
+// ============================================================
+// DEFAULT USERS (Hardcoded defaults as requested)
+// ============================================================
+const DEFAULT_USERS = [
+  { id: 'admin-1', username: 'admin', password: 'admin123', fullName: 'Quản trị viên', role: 'admin' },
+  { id: 'judge-1', username: 'giamkhao1', password: '123', fullName: 'Nguyễn Văn A', role: 'judge' },
+  { id: 'judge-2', username: 'giamkhao2', password: '123', fullName: 'Trần Thị B', role: 'judge' },
+  // Thêm danh sách người dùng của bạn vào đây
+];
+
 const store: Store = {
   initiatives: [],
-  users: [
-    { id: 'admin-1', username: 'admin', password: 'admin123', fullName: 'Quản trị viên', role: 'admin' },
-    { id: 'judge-1', username: 'giamkhao1', password: '123', fullName: 'Nguyên Văn A', role: 'judge' },
-    { id: 'judge-2', username: 'giamkhao2', password: '123', fullName: 'Trần Thị B', role: 'judge' },
-  ],
+  users: [...DEFAULT_USERS],
   grades: [],
   settings: null,
 };
@@ -152,7 +158,7 @@ app.post("/api/grades", (req, res) => {
 // Settings API
 app.get("/api/settings", (_req, res) => {
   try {
-    res.json(store.settings || { apiKey: "", model: "gemini-1.5-flash" });
+    res.json(store.settings || { apiKey: "", model: "gemini-2.0-flash" });
   } catch (error) {
     console.error("Failed to fetch settings:", error);
     res.status(500).json({ error: "Failed to fetch settings" });
