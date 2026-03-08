@@ -1392,8 +1392,8 @@ function MainApp() {
               <GraduationCap size={28} />
             </div>
             <div className="flex flex-col">
-              <span className="text-2xl font-black tracking-tighter text-slate-900 leading-none">EduReview</span>
-              <span className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.1em] mt-1.5 whitespace-nowrap">Trường TH&THCS Bãi Thơm</span>
+              <span className="text-2xl font-black tracking-tighter text-slate-900 leading-none">EduReview AI</span>
+              <span className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.1em] mt-1.5 whitespace-nowrap">Phiên bản Hệ thống v3.1.0-Gold</span>
             </div>
           </div>
         </div>
@@ -2261,15 +2261,11 @@ function MainApp() {
                         defaultValue={settings.model}
                         className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary transition bg-white"
                       >
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (GA - Cân bằng & Ổn định nhất)</option>
-                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (GA - Chuyên gia suy luận chất lượng cao)</option>
-                        <option value="gemini-3.1-pro">Gemini 3.1 Pro (Preview - Trí tuệ vượt trội & Tác vụ phức tạp)</option>
-                        <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (Preview - Siêu nhanh, Tiết kiệm nhất)</option>
-                        <option value="gemini-3-flash">Gemini 3 Flash (Preview - Hiệu năng tương lai)</option>
-                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Kế thừa - Dùng khi hết Quota 2.5/3.1)</option>
-                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Kế thừa - Phiên bản cũ đáng tin cậy)</option>
-
-
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Tiêu chuẩn - Khuyên dùng)</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Nâng cao - Chuyên sâu)</option>
+                        <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (Tối ưu tốc độ)</option>
+                        <option value="gemini-3-flash">Gemini 3.0 Flash (Thế hệ mới - Preview)</option>
+                        <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (Mới nhất - Tiết kiệm)</option>
                       </select>
                     </div>
                     <button

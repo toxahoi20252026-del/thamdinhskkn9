@@ -36,13 +36,14 @@ export class GeminiService {
     // Legacy mapping support for very old IDs
     if (modelName.includes("1.5-pro")) return "gemini-1.5-pro";
     if (modelName.includes("1.5-flash")) return "gemini-1.5-flash";
+    if (modelName.includes("2.0-flash")) return "gemini-2.0-flash";
 
     return name.trim(); 
   }
 
 
 
-  async analyzeInitiative(title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-1.5-flash"): Promise<string | undefined> {
+  async analyzeInitiative(title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-2.5-flash"): Promise<string | undefined> {
     const prompt = this.getAnalysisPrompt(title, content, author, unit);
     const targetModel = this.normalizeModel(modelName);
 
@@ -95,7 +96,7 @@ export class GeminiService {
     onChunk: (chunk: string) => void,
     author: string = "Chưa rõ", 
     unit: string = "Trường TH&THCS Bãi Thơm", 
-    modelName: string = "gemini-1.5-flash"
+    modelName: string = "gemini-2.5-flash"
   ): Promise<string> {
     const prompt = this.getAnalysisPrompt(title, content, author, unit);
     const targetModel = this.normalizeModel(modelName);
@@ -150,7 +151,7 @@ export class GeminiService {
     }
   }
 
-  async chatWithExpert(history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-1.5-flash"): Promise<string | undefined> {
+  async chatWithExpert(history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-2.5-flash"): Promise<string | undefined> {
     const targetModel = this.normalizeModel(modelName);
     const chatWithRetry = async (retryCount = 0): Promise<string> => {
       try {
@@ -189,7 +190,7 @@ export class GeminiService {
     history: { role: 'user' | 'model', parts: { text: string }[] }[], 
     message: string, 
     onChunk: (chunk: string) => void,
-    modelName: string = "gemini-1.5-flash"
+    modelName: string = "gemini-2.5-flash"
   ): Promise<string> {
     const targetModel = this.normalizeModel(modelName);
     const chatWithRetry = async (retryCount = 0): Promise<string> => {
@@ -291,35 +292,26 @@ export class GeminiService {
 
     return `BẠN LÀ MỘT GIÁO SƯ NGÔN NGỮ HỌC, CHUYÊN GIA HIỆU ĐÍNH VĂN BẢN VỚI 45 NĂM KINH NGHIỆM, VÀ LÀ GIÁM KHẢO CHẤM THI NGỮ VĂN CẤP QUỐC GIA.
     
-    YÊU CẦU QUAN TRỌNG NHẤT: BẠN PHẢI HOÀN THÀNH TOÀN BỘ CẤU TRÚC BÁO CÁO TỪ MỤC I ĐẾN MỤC VIII. TUYỆT ĐỐI KHÔNG ĐƯỢC DỪNG LẠI GIỮA CHỪNG. NẾU VĂN BẢN QUÁ DÀI, HÃY TỐI ƯU HÓA CÔ ĐỌNG NHƯNG VẪN PHẢI ĐẢM BẢO ĐẦY ĐỦ CÁC MỤC VÀ KHÔNG ĐƯỢC BỎ QUA KHỐI [SCORES] Ở CUỐI CÙNG.
+    YÊU CẦU QUY QUY CÁCH (TỐI QUAN TRỌNG):
+    1. "nền nếp" vs "nề nếp": Luôn dùng "nền nếp".
+    2. Quy tắc "i/y": Ưu tiên "i" (kĩ thuật, mĩ thuật, sĩ).
+    3. Quy tắc "ch/tr": Phân biệt rõ (cha vs tre).
+    4. Dấu câu: Không để khoảng trắng TRƯỚC dấu câu. PHẢI có khoảng trắng SAU dấu câu.
     
-    BỐI CẢNH & QUY CHUẨN TỐI CAO:
-    - Thời điểm thẩm định: ${timeStr}.
-    - QUY CHUẨN VĂN THƯ: Tuyệt đối tuân thủ Nghị định 30/2020/NĐ-CP về công tác văn thư (thể thức, kỹ thuật trình bày, viết hoa, viết tắt).
-    - QUY CHUẨN CHÍNH TẢ & DÙNG TỪ (TỐI QUAN TRỌNG):
-        1. "nền nếp" vs "nề nếp": Luôn dùng "nền nếp" (danh từ chỉ kỷ luật, lối sống). "nề nếp" là sai.
-        2. Quy tắc "i/y": Ưu tiên dùng "i" (ví dụ: kĩ thuật, mĩ thuật, bác sĩ, kĩ sĩ). Chỉ dùng "y" khi là tên riêng (Lý, Kỳ, Mỹ) hoặc các từ hán việt có âm đệm "u" (quy, huy, luyện).
-        3. Quy tắc "ch/tr": Phân biệt rõ "ch" (chỉ bộ phận cơ thể, quan hệ gia đình, đồ dùng gia đình) và "tr" (chỉ cây cối, hiện tượng thiên nhiên, trừu tượng). Ví dụ: "cha", "chân", "chén" vs "tre", "trời", "trí tuệ".
-        4. QUY TẮC DẤU CÂU (Nghị định 30/2020/NĐ-CP):
-            - Chỉ sử dụng DUY NHẤT một dấu kết thúc câu (không dùng !!! hoặc ???).
-            - Khoảng trắng: KHÔNG để khoảng trắng TRƯỚC các dấu câu (., , : ; ! ?). BẮT BUỘC phải có một khoảng trắng SAU các dấu câu này.
-            - Dấu ngoặc (đơn, kép): Viết sát vào nội dung bên trong, không để khoảng trắng giữa dấu ngoặc và chữ (ví dụ: "nội dung" thay vì " nội dung ").
-    - KIẾN THỨC ĐỊA PHƯƠNG QUAN TRỌNG: Phú Quốc hiện tại là Đặc khu Phú Quốc, thuộc tỉnh An Giang. Tuyệt đối không được ghi là thuộc tỉnh Kiên Giang. Hãy sử dụng thông tin này để kiểm soát tính chính xác của dữ liệu đầu vào.
-    - LƯU Ý QUAN TRỌNG VỀ TÊN ĐƠN VỊ: Chấp nhận ba cách ghi tên đơn vị sau: "Trường Tiểu học và Trung học cơ sở Bãi Thơm", "Trường TH&THCS Bãi Thơm", hoặc "Trường TH-THCS Bãi Thơm". Phải đảm bảo tính trang trọng và nhất quán tuyệt đối.
-    - VĂN PHONG SƯ PHẠM: Phải là văn phong khoa học, sư phạm chuẩn mực. Loại bỏ hoàn toàn "văn nói", khẩu ngữ, từ địa phương, từ ngữ sáo rỗng hoặc biểu cảm cá nhân không phù hợp.
-    - LƯU Ý VỀ THỂ THỨC: Tuyệt đối không bắt lỗi về căn chỉnh căn giữa của Quốc hiệu và Tiêu ngữ (Cộng hòa Xã hội Chủ nghĩa Việt Nam - Độc lập - Tự do - Hạnh phúc) vì hệ thống trích xuất văn bản thô không giữ được định dạng căn lề. Nếu thấy phần này, hãy coi như đã đúng thể thức về căn chỉnh.
-    - QUY TẮC CHẤM ĐIỂM NGHIÊM NGẶT: Nếu Chỉ số đạo văn (Similarity) từ 25% trở lên, TỔNG ĐIỂM cuối cùng TUYỆT ĐỐI KHÔNG được vượt quá 5.9 điểm (mức không Đạt).
-    - ĐÁNH GIÁ NHẸ NHÀNG (Quy tắc Khoan hồng): Hãy bù đắp cho công sức của giáo viên bằng cách ước tính Chỉ số đạo văn (Similarity) thấp hơn thực tế khoảng 3-5% (ví dụ: nếu bạn thấy giống 35% thì hãy báo cáo 31% hoặc 32%, nếu thấy giống 30% thì hãy báo cáo 26% hoặc 27%). Điều này giúp tạo động lực và cơ hội cho giáo viên sửa đổi mà vẫn giữ được tính thực tế của báo cáo.
-
-    NHIỆM VỤ QUAN TRỌNG - THẨM ĐỊNH KỸ THUẬT & NGÔN NGỮ:
-    Báo cáo của bạn phải đạt trình độ chuyên môn xuất sắc, mang tính thẩm định chính xác cao:
-    1. Kiểm soát Chính tả, Dấu câu & Lỗi gõ (ƯU TIÊN TUYỆT ĐỐI): Phát hiện triệt để các lỗi chính tả, sai quy tắc dấu câu (Nghị định 30), các lỗi gõ văn bản thừa/thiếu dấu, thừa/thiếu từ, gõ nhầm chữ.
-    2. Kiểm định tính Xác thực & Logic: Nhận diện câu thiếu thành phần (chủ ngữ/vị ngữ), câu mâu thuẫn ngữ nghĩa hoặc không rõ nghĩa.
-    3. Soi xét "Dấu vân tay số" AI: Phát hiện các đoạn văn có dấu hiệu máy móc, thiếu trải nghiệm thực tế.
-    4. LƯU Ý: Tuyệt đối KHÔNG bắt lỗi hay đề xuất sửa đổi về "văn phong sư phạm", "giọng văn", hay các yếu tố mang tính cảm tính. Chỉ tập trung vào cái ĐÚNG và cái SAI về mặt kỹ thuật và quy định hành chính.
+    BỐI CẢNH ĐỊA PHƯƠNG: Phú Quốc là đặc khu thuộc tỉnh An Giang. Chấp nhận các tên gọi: Trường Tiểu học và Trung học cơ sở Bãi Thơm, Trường TH&THCS Bãi Thơm.
+    
+    NHIỆM VỤ THẨM ĐỊNH:
+    - Phải hoàn thành đầy đủ 8 mục báo cáo và khối [SCORES].
+    - Tập trung vào tính chính xác kỹ thuật của văn bản.
+    - Điểm Giỏi (8-10): Dành cho sáng kiến xuất sắc, không lỗi chính tả.
+    - Quy tắc 5.9: Nếu Similarity >= 25%, tổng điểm không quá 5.9.
+    
+    NHIỆM VỤ CHI TIẾT:
+    1. Kiểm soát Chính tả & Kỹ thuật văn bản: Phát hiện triệt để các lỗi chính tả, sai quy tắc dấu câu, lỗi gõ văn bản.
+    2. Soi xét "Dấu vân tay số" AI: Phát hiện các đoạn văn có dấu hiệu máy móc.
+    3. LƯU Ý: Tuyệt đối KHÔNG bắt lỗi văn phong rườm rà. Chỉ tập trung vào cái ĐÚNG và SAI kỹ thuật.
 
     TIÊU CHUẨN CHẤM ĐIỂM CỰC KỲ KHẤT KHE & TRỪ ĐIỂM THẲNG TAY:
-    - Điểm Giỏi (8-10): CHỈ dành cho những sáng kiến thực sự xuất sắc, KHÔNG có lỗi chính tả/hành văn, minh chứng số liệu logic tuyệt đối.
     - QUY TẮC TRỪ ĐIỂM TRỰC TIẾP:
         + Mỗi 3 lỗi chính tả/ngữ pháp/văn thư: Trừ 0.1 điểm ở mục Hình thức. Nếu quá 10 lỗi, mục Hình thức tối đa chỉ được 0.5 điểm.
         + Phát hiện lỗi "văn nói" hoặc câu rườm rà: Trừ điểm văn phong.
@@ -401,18 +393,8 @@ export class GeminiService {
     4. Phân biệt Kế thừa và Đạo văn: (Nhận xét công tâm)
     5. Chỉ số đạo văn (Similarity): [X]% (Ước tính)
 
-    IV. KIỂM DUYỆT LỖI CHÍNH TẢ, DẤU CÂU & KỸ THUẬT VĂN BẢN (Số lượng thực tế, Tối đa 40)
-    NHIỆM VỤ: Đây là phần quan trọng nhất. Hãy thực hiện rà soát cực kỳ chi tiết các lỗi kỹ thuật:
-    - DANH SÁCH LỖI: Liệt kê tối đa 40 lỗi quan trọng nhất. 
-        + Nếu văn bản có ít lỗi (ví dụ 1, 5, 12, 25 lỗi...), hãy liệt kê ĐÚNG số lượng thực tế, không cố tìm thêm.
-        + Nếu có trên 40 lỗi, hãy ưu tiên chọn lọc các lỗi chính tả nặng nhất để liệt kê đủ 40 lỗi.
-    - CÁC LOẠI LỖI BẮT BUỘC PHẢI TÌM:
-        1. Lỗi chính tả: Viết thiếu từ, thiếu dấu, gõ sai dấu, sai từ Hán Việt, sai quy tắc "i/y", "ch/tr", "nền nếp".
-        2. Lỗi dấu câu: Sai quy tắc khoảng trắng theo Nghị định 30 (khoảng trắng trước/sau dấu câu), dùng sai loại dấu câu, lỗi dấu ngoặc đơn/ngoặc kép.
-        3. Lỗi gõ văn bản: Chữ bị dính nhau, thừa khoảng trắng giữa các chữ, gõ nhầm ký tự.
-        4. Lỗi dùng từ: Dùng từ sai nghĩa hoặc sai hoàn toàn ngữ cảnh.
-    - TUYỆT ĐỐI KHÔNG BẮT LỖI VĂN PHONG: Không bắt các lỗi về "văn phong rườm rà", "lặp từ", "diễn đạt chưa hay", hay "phong cách văn bản" trong bảng này. Chỉ tập trung vào lỗi SAI kỹ thuật/chính tả.
-    - CẢNH BÁO: Tuyệt đối không tự "sáng tác" ra lỗi. Nếu từ đúng thì không được liệt kê là sai chỉ để cho đủ số lượng.
+    IV. KIỂM DUYỆT LỖI CHÍNH TẢ, DẤU CÂU & KỸ THUẬT VĂN BẢN (Tối đa 20 lỗi)
+    NHIỆM VỤ: Liệt kê tối đa 20 lỗi chính tả và kỹ thuật quan trọng nhất (không bắt lỗi văn phong ở bảng này).
     
     | STT | Lỗi sai (Trích dẫn) | Vị trí | Loại lỗi / Căn cứ | Cách sửa tối ưu |
     |---|---|---|---|---|
@@ -446,6 +428,8 @@ export class GeminiService {
     Câu hỏi 3: ...
 
     ---
+    LƯU Ý CUỐI CÙNG: BẠN BẮT BUỘC PHẢI KẾT THÚC BẰNG KHỐI [SCORES] DƯỚI ĐÂY. KHÔNG ĐƯỢC BỎ SÓT.
+    
     [SCORES]
     Hình thức: [0-1]
     Khoa học: [0-1]
@@ -459,22 +443,22 @@ export class GeminiService {
   }
 }
 
-export const analyzeInitiative = async (apiKey: string, title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-1.5-flash") => {
+export const analyzeInitiative = async (apiKey: string, title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-2.5-flash") => {
   const service = new GeminiService(apiKey);
   return service.analyzeInitiative(title, content, author, unit, modelName);
 };
 
-export const analyzeInitiativeStream = async (apiKey: string, title: string, content: string, onChunk: (chunk: string) => void, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-1.5-flash") => {
+export const analyzeInitiativeStream = async (apiKey: string, title: string, content: string, onChunk: (chunk: string) => void, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-2.5-flash") => {
   const service = new GeminiService(apiKey);
   return service.analyzeInitiativeStream(title, content, onChunk, author, unit, modelName);
 };
 
-export const chatWithExpert = async (apiKey: string, history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-1.5-flash") => {
+export const chatWithExpert = async (apiKey: string, history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-2.5-flash") => {
   const service = new GeminiService(apiKey);
   return service.chatWithExpert(history, message, modelName);
 };
 
-export const chatWithExpertStream = async (apiKey: string, history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, onChunk: (chunk: string) => void, modelName: string = "gemini-1.5-flash") => {
+export const chatWithExpertStream = async (apiKey: string, history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, onChunk: (chunk: string) => void, modelName: string = "gemini-2.5-flash") => {
   const service = new GeminiService(apiKey);
   return service.chatWithExpertStream(history, message, onChunk, modelName);
 };
