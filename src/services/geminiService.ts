@@ -16,12 +16,15 @@ export class GeminiService {
    * Normalizes model names to strictly follow the current Google API requirements
    */
   private normalizeModel(modelName: string): string {
-    // Common mistakes in UI or local state
+    // Standardize Gemini naming to prevent 404s in earlier steps.
+    // Map "future" or "friendly" names to real API model IDs.
+    if (modelName === "gemini-3-flash") return "gemini-2.0-flash";
+    if (modelName === "gemini-3.1-flash-lite") return "gemini-2.0-flash-lite-preview-02-05";
+    if (modelName === "gemini-2.5-pro") return "gemini-2.0-pro-exp-02-05";
+    if (modelName === "gemini-2.5-flash") return "gemini-2.0-flash";
     if (modelName === "gemini-2-flash") return "gemini-2.0-flash";
     if (modelName === "gemini-2-flash-exp") return "gemini-2.0-flash-exp";
     if (modelName === "gemini-2-flash-lite") return "gemini-2.0-flash-lite-preview-02-05";
-    if (modelName === "gemini-2.5-flash") return "gemini-2.0-flash"; // Placeholder for hypothetical
-    if (modelName === "gemini-3-flash") return "gemini-2.0-flash";   // Placeholder
     return modelName;
   }
 

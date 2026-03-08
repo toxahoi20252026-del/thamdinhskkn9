@@ -1811,7 +1811,7 @@ function MainApp() {
                                     <Zap size={14} className="mr-1" /> Gợi ý khắc phục:
                                   </p>
                                   <p className="text-[10px] text-amber-700 leading-normal">
-                                    Tài khoản của bạn đã hết hạn mức cho model này (GEMINI 2.0 FLASH). Vui lòng vào <strong>Cấu hình hệ thống</strong> và chuyển sang <strong>Gemini 1.5 Flash (Mặc định)</strong> để tiếp tục sử dụng miễn phí hoặc kiểm tra lại API Key.
+                                    Tài khoản của bạn đã hết hạn mức cho model này ({settings.model.toUpperCase().replace(/-/g, ' ')}). Vui lòng vào <strong>Cấu hình hệ thống</strong> và chuyển sang <strong>Gemini 1.5 Flash (Mặc định)</strong> để tiếp tục sử dụng miễn phí hoặc kiểm tra lại API Key.
                                   </p>
                                 </div>
                               )}
@@ -2261,13 +2261,13 @@ function MainApp() {
                         defaultValue={settings.model}
                         className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary transition bg-white"
                       >
+                        <option value="gemini-3-flash">Gemini 3 Flash (Model "Quốc dân" mới nhất)</option>
+                        <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (Phiên bản siêu nhẹ)</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Suy luận Logic & Lập trình)</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Lựa chọn ổn định)</option>
+                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Mặc định - Khuyên dùng khi hết Quota)</option>
+                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Phiên bản mạnh mẽ)</option>
                         <option value="gemini-2.0-flash">Gemini 2.0 Flash (Stable)</option>
-                        <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Exp</option>
-                        <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.0 Flash-Lite</option>
-                        <option value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro Exp (Experimental)</option>
-                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Powerful)</option>
-                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Default)</option>
-                        <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash-8B</option>
                       </select>
                     </div>
                     <button
