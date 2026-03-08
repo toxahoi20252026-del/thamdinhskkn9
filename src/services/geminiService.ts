@@ -60,7 +60,7 @@ export class GeminiService {
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             config: {
               temperature: 0.1,
-              maxOutputTokens: 12000,
+              maxOutputTokens: 30000,
               safetySettings: [
                 { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
                 { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -74,12 +74,7 @@ export class GeminiService {
           const finishReason = response.candidates?.[0]?.finishReason;
 
           if (finishReason && finishReason !== "STOP") {
-            const warningMsg = `Cảnh báo: AI dừng giữa chừng với lý do: ${finishReason}. Báo cáo có thể bị thiếu phần cuối.`;
-            console.warn(warningMsg);
-            // Append warning if truncated
-            if (finishReason === "MAX_TOKENS") {
-              return text + "\n\n--- [CẢNH BÁO: BÁO CÁO BỊ CẮT DO QUÁ DÀI. VUI LÒNG CHỌN MODEL MẠNH HƠN HOẶC LIÊN HỆ QUẢN TRỊ VIÊN] ---";
-            }
+            console.warn(`AI termination reason: ${finishReason}`);
           }
 
           if (!text) {
@@ -119,7 +114,7 @@ export class GeminiService {
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           config: {
             temperature: 0.1,
-            maxOutputTokens: 12000,
+            maxOutputTokens: 30000,
             safetySettings: [
               { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
               { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -151,12 +146,7 @@ export class GeminiService {
         }
 
         if (finishReason && finishReason !== "STOP") {
-          const warningMsg = `[CẢNH BÁO HỆ THỐNG: AI dừng giữa chừng vì lý do ${finishReason}. Nội dung có thể chưa hoàn tất.]`;
-          console.warn(warningMsg);
-          if (finishReason === "MAX_TOKENS") {
-             fullText += "\n\n--- [BÁO CÁO BỊ CẮT VÌ VƯỢT QUÁ GIỚI HẠN DÀI. HÃY THỬ LẠI HOẶC CHỌN MODEL KHÁC] ---";
-             onChunk(fullText);
-          }
+          console.warn(`AI stream termination reason: ${finishReason}`);
         }
 
         if (!fullText) {
