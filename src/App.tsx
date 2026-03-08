@@ -2261,17 +2261,12 @@ function MainApp() {
                         defaultValue={settings.model}
                         className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-primary transition bg-white"
                       >
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Mặc định)</option>
-                        <option value="gemini-3-flash">Gemini 3 Flash</option>
-                        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                        <option value="gemini-2-flash">Gemini 2 Flash</option>
-                        <option value="gemini-2-flash-exp">Gemini 2 Flash Exp</option>
-                        <option value="gemini-2-flash-lite">Gemini 2 Flash Lite</option>
-                        <option value="gemini-2.5-flash-tts">Gemini 2.5 Flash TTS</option>
-                        <option value="gemini-2.5-pro-tts">Gemini 2.5 Pro TTS</option>
                         <option value="gemini-2.0-flash">Gemini 2.0 Flash (Stable)</option>
-                        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                        <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Exp</option>
+                        <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.0 Flash-Lite</option>
+                        <option value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro Exp (Experimental)</option>
+                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Powerful)</option>
+                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Default)</option>
                         <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash-8B</option>
                       </select>
                     </div>

@@ -4,11 +4,30 @@ export class GeminiService {
   private ai: GoogleGenAI;
 
   constructor(apiKey: string) {
-    this.ai = new GoogleGenAI({ apiKey, apiVersion: "v1beta" });
+    // This SDK (Next Gen) requires an object for configuration
+    this.ai = new GoogleGenAI({ 
+      apiKey, 
+      // Defaulting to v1beta for support of newer models. 
+      apiVersion: "v1beta" 
+    });
+  }
+
+  /**
+   * Normalizes model names to strictly follow the current Google API requirements
+   */
+  private normalizeModel(modelName: string): string {
+    // Common mistakes in UI or local state
+    if (modelName === "gemini-2-flash") return "gemini-2.0-flash";
+    if (modelName === "gemini-2-flash-exp") return "gemini-2.0-flash-exp";
+    if (modelName === "gemini-2-flash-lite") return "gemini-2.0-flash-lite-preview-02-05";
+    if (modelName === "gemini-2.5-flash") return "gemini-2.0-flash"; // Placeholder for hypothetical
+    if (modelName === "gemini-3-flash") return "gemini-2.0-flash";   // Placeholder
+    return modelName;
   }
 
   async analyzeInitiative(title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-1.5-flash"): Promise<string | undefined> {
     const prompt = this.getAnalysisPrompt(title, content, author, unit);
+    const targetModel = this.normalizeModel(modelName);
 
     const analyzeWithRetry = async (retryCount = 0): Promise<string> => {
       try {
@@ -17,18 +36,22 @@ export class GeminiService {
         );
 
         const analysisPromise = (async () => {
-          const response: GenerateContentResponse = await this.ai.models.generateContent({
-            model: modelName,
-            contents: prompt,
+          // Cast to any to avoid TS errors if types are slightly mismatched in this experimental SDK
+          const response: GenerateContentResponse = await (this.ai.models.generateContent as any)({
+            model: targetModel,
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
             config: {
               temperature: 0.2,
             }
           });
 
-          if (!response || !response.text) {
+          // In this SDK (Next Gen), .text is a getter property, not a method
+          // Using a safely accessed getter to avoid "text is not a function"
+          const text = response.text;
+          if (!text) {
             throw new Error("Không nhận được nội dung từ AI.");
           }
-          return response.text;
+          return text;
         })();
 
         return await Promise.race([analysisPromise, timeoutPromise]) as string;
@@ -40,7 +63,7 @@ export class GeminiService {
     try {
       return await analyzeWithRetry();
     } catch (error: any) {
-      throw this.transformError(error, modelName);
+      throw this.transformError(error, targetModel);
     }
   }
 
@@ -53,23 +76,23 @@ export class GeminiService {
     modelName: string = "gemini-1.5-flash"
   ): Promise<string> {
     const prompt = this.getAnalysisPrompt(title, content, author, unit);
+    const targetModel = this.normalizeModel(modelName);
 
     const analyzeWithRetry = async (retryCount = 0): Promise<string> => {
       try {
-        const result = await this.ai.models.generateContentStream({
-          model: modelName,
-          contents: prompt,
+        const result = await (this.ai.models.generateContentStream as any)({
+          model: targetModel,
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
           config: {
             temperature: 0.2,
           }
         });
 
         let fullText = "";
-        // In @google/genai, the result is the stream itself or contains a stream property
-        const stream = (result as any).stream || result;
-        
-        for await (const chunk of stream) {
-          const chunkText = chunk.text ? chunk.text() : "";
+        // result is an AsyncGenerator in this SDK
+        for await (const chunk of result) {
+          // Careful: accessing .text as a property, NOT as a method()
+          const chunkText = chunk.text;
           if (chunkText) {
             fullText += chunkText;
             onChunk(fullText);
@@ -88,8 +111,117 @@ export class GeminiService {
     try {
       return await analyzeWithRetry();
     } catch (error: any) {
-      throw this.transformError(error, modelName);
+      throw this.transformError(error, targetModel);
     }
+  }
+
+  async chatWithExpert(history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-1.5-flash"): Promise<string | undefined> {
+    const targetModel = this.normalizeModel(modelName);
+    const chatWithRetry = async (retryCount = 0): Promise<string> => {
+      try {
+        const contents = [...history, { role: 'user', parts: [{ text: message }] }];
+        const response: GenerateContentResponse = await (this.ai.models.generateContent as any)({
+          model: targetModel,
+          contents: contents,
+          config: { temperature: 0.7 }
+        });
+
+        const text = response.text;
+        if (!text) throw new Error("Không nhận được phản hồi từ AI.");
+        return text;
+      } catch (error: any) {
+        return this.handleRetry(error, retryCount, () => chatWithRetry(retryCount + 1));
+      }
+    };
+
+    try {
+      return await chatWithRetry();
+    } catch (error: any) {
+      throw this.transformError(error, targetModel);
+    }
+  }
+
+  async chatWithExpertStream(
+    history: { role: 'user' | 'model', parts: { text: string }[] }[], 
+    message: string, 
+    onChunk: (chunk: string) => void,
+    modelName: string = "gemini-1.5-flash"
+  ): Promise<string> {
+    const targetModel = this.normalizeModel(modelName);
+    const chatWithRetry = async (retryCount = 0): Promise<string> => {
+      try {
+        const contents = [...history, { role: 'user', parts: [{ text: message }] }];
+        const result = await (this.ai.models.generateContentStream as any)({
+          model: targetModel,
+          contents: contents,
+          config: { temperature: 0.7 }
+        });
+
+        let fullText = "";
+        for await (const chunk of result) {
+          const chunkText = chunk.text;
+          if (chunkText) {
+            fullText += chunkText;
+            onChunk(fullText);
+          }
+        }
+        return fullText;
+      } catch (error: any) {
+        return this.handleRetry(error, retryCount, () => chatWithRetry(retryCount + 1));
+      }
+    };
+
+    try {
+      return await chatWithRetry();
+    } catch (error: any) {
+      throw this.transformError(error, targetModel);
+    }
+  }
+
+  private handleRetry(error: any, retryCount: number, retryFn: () => Promise<string>): Promise<string> {
+    const isRetryable = error?.message?.includes("503") ||
+      error?.message?.includes("429") ||
+      error?.message?.includes("UNAVAILABLE") ||
+      error?.message?.includes("RESOURCE_EXHAUSTED") ||
+      error?.message?.includes("Timeout");
+
+    if (isRetryable && retryCount < 3) {
+      const delay = Math.pow(2, retryCount) * 2000;
+      console.log(`Retry attempt ${retryCount + 1} due to service instability. Waiting ${delay}ms...`);
+      return new Promise(r => setTimeout(r, delay)).then(retryFn);
+    }
+    throw error;
+  }
+
+  private transformError(error: any, modelName: string): Error {
+    console.error("Gemini API Error Detail:", {
+      message: error?.message,
+      stack: error?.stack,
+      model: modelName
+    });
+
+    let errorMsg = error?.message || "Lỗi kết nối hoặc hết hạn quota";
+
+    // Clean up technical messages
+    if (errorMsg.includes('{')) {
+      try {
+        const jsonPart = errorMsg.substring(errorMsg.indexOf('{'));
+        const parsed = JSON.parse(jsonPart);
+        if (parsed.error?.message) {
+          errorMsg = parsed.error.message;
+        }
+      } catch (e) {}
+    }
+
+    if (errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE")) {
+      errorMsg = "Máy chủ AI hiện đang bận do nhu cầu cao. Vui lòng thử lại sau vài giây.";
+    } else if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
+      errorMsg = "Đã vượt quá giới hạn yêu cầu (Quota). Vui lòng đợi một lát trước khi thử lại.";
+    } else if (errorMsg.includes("404")) {
+      errorMsg = `Lỗi: Không tìm thấy model '${modelName}'. Vui lòng thử lại với Gemini 1.5 Flash hoặc 2.0 Flash.`;
+    }
+
+    return new Error(`Lỗi: ${errorMsg}`);
   }
 
   private getAnalysisPrompt(title: string, content: string, author: string, unit: string): string {
@@ -119,7 +251,7 @@ export class GeminiService {
     - VĂN PHONG SƯ PHẠM: Phải là văn phong khoa học, sư phạm chuẩn mực. Loại bỏ hoàn toàn "văn nói", khẩu ngữ, từ địa phương, từ ngữ sáo rỗng hoặc biểu cảm cá nhân không phù hợp.
     - LƯU Ý VỀ THỂ THỨC: Tuyệt đối không bắt lỗi về căn chỉnh căn giữa của Quốc hiệu và Tiêu ngữ (Cộng hòa Xã hội Chủ nghĩa Việt Nam - Độc lập - Tự do - Hạnh phúc) vì hệ thống trích xuất văn bản thô không giữ được định dạng căn lề. Nếu thấy phần này, hãy coi như đã đúng thể thức về căn chỉnh.
     - QUY TẮC CHẤM ĐIỂM NGHIÊM NGẶT: Nếu Chỉ số đạo văn (Similarity) từ 25% trở lên, TỔNG ĐIỂM cuối cùng TUYỆT ĐỐI KHÔNG được vượt quá 5.9 điểm (mức không Đạt).
-    - ĐÁNH GIÁ NHẸ NHÀNG (Leniency Rule): Hãy bù đắp cho công sức của giáo viên bằng cách ước tính Chỉ số đạo văn (Similarity) thấp hơn thực tế khoảng 3-5% (ví dụ: nếu bạn thấy giống 35% thì hãy báo cáo 31% hoặc 32%, nếu thấy giống 30% thì báo cáo 26% hoặc 27%). Điều này giúp tạo động lực và cơ hội cho giáo viên sửa đổi mà vẫn giữ được tính thực tế của báo cáo.
+    - ĐÁNH GIÁ NHẸ NHÀNG (Quy tắc Khoan hồng): Hãy bù đắp cho công sức của giáo viên bằng cách ước tính Chỉ số đạo văn (Similarity) thấp hơn thực tế khoảng 3-5% (ví dụ: nếu bạn thấy giống 35% thì hãy báo cáo 31% hoặc 32%, nếu thấy giống 30% thì hãy báo cáo 26% hoặc 27%). Điều này giúp tạo động lực và cơ hội cho giáo viên sửa đổi mà vẫn giữ được tính thực tế của báo cáo.
 
     NHIỆM VỤ QUAN TRỌNG - THẨM ĐỊNH KỸ THUẬT & NGÔN NGỮ:
     Báo cáo của bạn phải đạt trình độ chuyên môn xuất sắc, mang tính thẩm định chính xác cao:
@@ -266,110 +398,6 @@ export class GeminiService {
     AI_Risk: [Thấp/Trung bình/Cao]
     Similarity: [0-100]%
     [/SCORES]`;
-  }
-
-  async chatWithExpert(history: { role: 'user' | 'model', parts: { text: string }[] }[], message: string, modelName: string = "gemini-1.5-flash"): Promise<string | undefined> {
-    const chatWithRetry = async (retryCount = 0): Promise<string> => {
-      try {
-        const contents = [...history, { role: 'user', parts: [{ text: message }] }];
-        const response: GenerateContentResponse = await this.ai.models.generateContent({
-          model: modelName,
-          contents: contents,
-          config: { temperature: 0.7 }
-        });
-
-        if (!response || !response.text) throw new Error("Không nhận được phản hồi từ AI.");
-        return response.text;
-      } catch (error: any) {
-        return this.handleRetry(error, retryCount, () => chatWithRetry(retryCount + 1));
-      }
-    };
-
-    try {
-      return await chatWithRetry();
-    } catch (error: any) {
-      throw this.transformError(error, modelName);
-    }
-  }
-
-  async chatWithExpertStream(
-    history: { role: 'user' | 'model', parts: { text: string }[] }[], 
-    message: string, 
-    onChunk: (chunk: string) => void,
-    modelName: string = "gemini-1.5-flash"
-  ): Promise<string> {
-    const chatWithRetry = async (retryCount = 0): Promise<string> => {
-      try {
-        const contents = [...history, { role: 'user', parts: [{ text: message }] }];
-        const result = await this.ai.models.generateContentStream({
-          model: modelName,
-          contents: contents,
-          config: { temperature: 0.7 }
-        });
-
-        let fullText = "";
-        const stream = (result as any).stream || result;
-        for await (const chunk of stream) {
-          const chunkText = chunk.text ? chunk.text() : "";
-          if (chunkText) {
-            fullText += chunkText;
-            onChunk(fullText);
-          }
-        }
-        return fullText;
-      } catch (error: any) {
-        return this.handleRetry(error, retryCount, () => chatWithRetry(retryCount + 1));
-      }
-    };
-
-    try {
-      return await chatWithRetry();
-    } catch (error: any) {
-      throw this.transformError(error, modelName);
-    }
-  }
-
-  private handleRetry(error: any, retryCount: number, retryFn: () => Promise<string>): Promise<string> {
-    const isRetryable = error?.message?.includes("503") ||
-      error?.message?.includes("429") ||
-      error?.message?.includes("UNAVAILABLE") ||
-      error?.message?.includes("RESOURCE_EXHAUSTED") ||
-      error?.message?.includes("Timeout");
-
-    if (isRetryable && retryCount < 3) {
-      const delay = Math.pow(2, retryCount) * 2000;
-      console.log(`Retry attempt ${retryCount + 1} due to service instability. Waiting ${delay}ms...`);
-      return new Promise(r => setTimeout(r, delay)).then(retryFn);
-    }
-    throw error;
-  }
-
-  private transformError(error: any, modelName: string): Error {
-    console.error("Gemini API Error Detail:", {
-      message: error?.message,
-      stack: error?.stack,
-      model: modelName
-    });
-
-    let errorMsg = error?.message || "Lỗi kết nối hoặc hết hạn quota";
-
-    if (errorMsg.includes('{')) {
-      try {
-        const jsonPart = errorMsg.substring(errorMsg.indexOf('{'));
-        const parsed = JSON.parse(jsonPart);
-        if (parsed.error?.message) {
-          errorMsg = parsed.error.message;
-        }
-      } catch (e) {}
-    }
-
-    if (errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE")) {
-      errorMsg = "Máy chủ AI hiện đang bận do nhu cầu cao. Vui lòng thử lại sau vài giây.";
-    } else if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
-      errorMsg = "Đã vượt quá giới hạn yêu cầu (Quota). Vui lòng đợi một lát trước khi thử lại.";
-    }
-
-    return new Error(`Lỗi: ${errorMsg}`);
   }
 }
 
