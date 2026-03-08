@@ -7,7 +7,8 @@ export class GeminiService {
     // This SDK (Next Gen) requires an object for configuration
     this.ai = new GoogleGenAI({ 
       apiKey, 
-      // Defaulting to v1beta for support of newer models. 
+      // Using v1beta as it supports BOTH stable and experimental/preview models.
+      // Stable models (1.5 Flash, 2.0 Flash) are accessible here as well.
       apiVersion: "v1beta" 
     });
   }
@@ -15,17 +16,26 @@ export class GeminiService {
   /**
    * Normalizes model names to strictly follow the current Google API requirements
    */
-  private normalizeModel(modelName: string): string {
-    // Standardize Gemini naming to prevent 404s in earlier steps.
-    // Map "future" or "friendly" names to real API model IDs.
-    if (modelName === "gemini-3-flash") return "gemini-2.0-flash";
-    if (modelName === "gemini-3.1-flash-lite") return "gemini-2.0-flash-lite-preview-02-05";
-    if (modelName === "gemini-2.5-pro") return "gemini-2.0-pro-exp-02-05";
-    if (modelName === "gemini-2.5-flash") return "gemini-2.0-flash";
+  private normalizeModel(name: string): string {
+    const modelName = name.trim().toLowerCase();
+    
+    // Exact mapping for requested models to stable IDs
+    if (modelName.includes("3.1-flash-lite")) return "gemini-2.0-flash-lite-preview-02-05";
+    if (modelName.includes("3-flash")) return "gemini-2.0-flash";
+    if (modelName.includes("2.5-pro")) return "gemini-2.0-pro-exp-02-05";
+    if (modelName.includes("2.5-flash")) return "gemini-2.0-flash";
+    
+    // Standard version mappings
     if (modelName === "gemini-2-flash") return "gemini-2.0-flash";
     if (modelName === "gemini-2-flash-exp") return "gemini-2.0-flash-exp";
     if (modelName === "gemini-2-flash-lite") return "gemini-2.0-flash-lite-preview-02-05";
-    return modelName;
+    
+    // Ensure base models are clean
+    if (modelName === "gemini-1.5-flash") return "gemini-1.5-flash";
+    if (modelName === "gemini-1.5-pro") return "gemini-1.5-pro";
+    if (modelName === "gemini-2.0-flash") return "gemini-2.0-flash";
+
+    return name.trim(); // Fallback to trimmed original
   }
 
   async analyzeInitiative(title: string, content: string, author: string = "Chưa rõ", unit: string = "Trường TH&THCS Bãi Thơm", modelName: string = "gemini-1.5-flash"): Promise<string | undefined> {
@@ -48,8 +58,6 @@ export class GeminiService {
             }
           });
 
-          // In this SDK (Next Gen), .text is a getter property, not a method
-          // Using a safely accessed getter to avoid "text is not a function"
           const text = response.text;
           if (!text) {
             throw new Error("Không nhận được nội dung từ AI.");
@@ -92,9 +100,7 @@ export class GeminiService {
         });
 
         let fullText = "";
-        // result is an AsyncGenerator in this SDK
         for await (const chunk of result) {
-          // Careful: accessing .text as a property, NOT as a method()
           const chunkText = chunk.text;
           if (chunkText) {
             fullText += chunkText;
@@ -205,7 +211,7 @@ export class GeminiService {
 
     let errorMsg = error?.message || "Lỗi kết nối hoặc hết hạn quota";
 
-    // Clean up technical messages
+    // Clean up technical JSON messages from API response
     if (errorMsg.includes('{')) {
       try {
         const jsonPart = errorMsg.substring(errorMsg.indexOf('{'));
@@ -216,15 +222,18 @@ export class GeminiService {
       } catch (e) {}
     }
 
+    // Map common error codes to user-friendly messages
     if (errorMsg.includes("503") || errorMsg.includes("UNAVAILABLE")) {
       errorMsg = "Máy chủ AI hiện đang bận do nhu cầu cao. Vui lòng thử lại sau vài giây.";
     } else if (errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
       errorMsg = "Đã vượt quá giới hạn yêu cầu (Quota). Vui lòng đợi một lát trước khi thử lại.";
     } else if (errorMsg.includes("404")) {
-      errorMsg = `Lỗi: Không tìm thấy model '${modelName}'. Vui lòng thử lại với Gemini 1.5 Flash hoặc 2.0 Flash.`;
+      errorMsg = `Không tìm thấy model '${modelName}'. Vui lòng thử chọn Gemini 1.5 Flash hoặc 2.0 Flash (Stable) trong mục Cài đặt.`;
     }
 
-    return new Error(`Lỗi: ${errorMsg}`);
+    // Avoid duplicate "Lỗi: Lỗi:" prefix
+    const cleanMsg = errorMsg.replace(/^Lỗi:\s*/i, "");
+    return new Error(`Lỗi: ${cleanMsg}`);
   }
 
   private getAnalysisPrompt(title: string, content: string, author: string, unit: string): string {
