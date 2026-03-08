@@ -59,8 +59,8 @@ export class GeminiService {
             model: targetModel,
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             config: {
-              temperature: 0.2,
-              maxOutputTokens: 8192,
+              temperature: 0.1,
+              maxOutputTokens: 12000,
               safetySettings: [
                 { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
                 { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -71,6 +71,17 @@ export class GeminiService {
           });
 
           const text = response.text;
+          const finishReason = response.candidates?.[0]?.finishReason;
+
+          if (finishReason && finishReason !== "STOP") {
+            const warningMsg = `Cảnh báo: AI dừng giữa chừng với lý do: ${finishReason}. Báo cáo có thể bị thiếu phần cuối.`;
+            console.warn(warningMsg);
+            // Append warning if truncated
+            if (finishReason === "MAX_TOKENS") {
+              return text + "\n\n--- [CẢNH BÁO: BÁO CÁO BỊ CẮT DO QUÁ DÀI. VUI LÒNG CHỌN MODEL MẠNH HƠN HOẶC LIÊN HỆ QUẢN TRỊ VIÊN] ---";
+            }
+          }
+
           if (!text) {
             throw new Error("Không nhận được nội dung từ AI.");
           }
@@ -107,8 +118,8 @@ export class GeminiService {
           model: targetModel,
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           config: {
-            temperature: 0.2,
-            maxOutputTokens: 8192,
+            temperature: 0.1,
+            maxOutputTokens: 12000,
             safetySettings: [
               { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
               { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -121,18 +132,31 @@ export class GeminiService {
         let fullText = "";
         let finishReason = "";
         for await (const chunk of result) {
-          const chunkText = chunk.text;
           if (chunk.candidates?.[0]?.finishReason) {
             finishReason = chunk.candidates[0].finishReason;
           }
+          
+          let chunkText = "";
+          try {
+            chunkText = chunk.text;
+          } catch (e) {
+            // Some chunks might contain errors or partial data without text
+            console.warn("Chunk error:", e);
+          }
+
           if (chunkText) {
             fullText += chunkText;
             onChunk(fullText);
           }
         }
 
-        if (finishReason && finishReason !== "STOP" && finishReason !== "COMPLETE") {
-          console.warn(`Cảnh báo: AI dừng giữa chừng với lý do: ${finishReason}. Nội dung có thể bị thiếu.`);
+        if (finishReason && finishReason !== "STOP") {
+          const warningMsg = `[CẢNH BÁO HỆ THỐNG: AI dừng giữa chừng vì lý do ${finishReason}. Nội dung có thể chưa hoàn tất.]`;
+          console.warn(warningMsg);
+          if (finishReason === "MAX_TOKENS") {
+             fullText += "\n\n--- [BÁO CÁO BỊ CẮT VÌ VƯỢT QUÁ GIỚI HẠN DÀI. HÃY THỬ LẠI HOẶC CHỌN MODEL KHÁC] ---";
+             onChunk(fullText);
+          }
         }
 
         if (!fullText) {
@@ -292,11 +316,13 @@ export class GeminiService {
 
     return `BẠN LÀ MỘT GIÁO SƯ NGÔN NGỮ HỌC, CHUYÊN GIA HIỆU ĐÍNH VĂN BẢN VỚI 45 NĂM KINH NGHIỆM, VÀ LÀ GIÁM KHẢO CHẤM THI NGỮ VĂN CẤP QUỐC GIA.
     
+    YÊU CẦU QUAN TRỌNG NHẤT: BÁO CÁO PHẢI TOÀN VẸN. KHÔNG ĐƯỢC DỪNG HIỂN THỊ TRƯỚC KHI XUẤT XONG ĐẾN DÒNG CUỐI CÙNG CỦA KHỐI [SCORES].
     YÊU CẦU QUY QUY CÁCH (TỐI QUAN TRỌNG):
     1. "nền nếp" vs "nề nếp": Luôn dùng "nền nếp".
     2. Quy tắc "i/y": Ưu tiên "i" (kĩ thuật, mĩ thuật, sĩ).
     3. Quy tắc "ch/tr": Phân biệt rõ (cha vs tre).
     4. Dấu câu: Không để khoảng trắng TRƯỚC dấu câu. PHẢI có khoảng trắng SAU dấu câu.
+    5. ĐỘ DÀI VÀ TÍNH TOÀN VẸN (TỐI QUAN TRỌNG): Bạn PHẢI xuất đầy đủ cả 8 mục báo cáo (từ I đến VIII) và khối [SCORES]. Tuyệt đối KHÔNG được dừng giữa chừng (truncated) hoặc bỏ sót bất kỳ mục nào. Nếu dữ liệu quá lớn, hãy tóm tắt ý chính nhưng PHẢI giữ đủ cấu trúc.
     
     BỐI CẢNH ĐỊA PHƯƠNG: Phú Quốc là đặc khu thuộc tỉnh An Giang. Chấp nhận các tên gọi: Trường Tiểu học và Trung học cơ sở Bãi Thơm, Trường TH&THCS Bãi Thơm.
     
